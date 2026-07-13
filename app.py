@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, Table, TableStyle, ListFlowable, ListItem
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, Table, TableStyle, ListFlowable, ListItem, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -32,7 +32,6 @@ def volver():
     st.session_state.vista = 'landing'
     st.session_state.descargado = False
 
-# --- SCRIPTS DE SCROLL INVISIBLE ---
 def scroll_to_top():
     components.html(
         """
@@ -43,102 +42,109 @@ def scroll_to_top():
         height=0
     )
 
-# --- 2. CSS BLINDADO ---
+# --- 2. CSS BLINDADO (CERO ROJO, TODO CORPORATIVO) ---
 st.markdown("""
     <style>
-    .btn-comenzar > button { background-color: #E31837 !important; color: #FFFFFF !important; font-size: 20px !important; padding: 15px !important; font-weight: bold; border-radius: 8px;}
-    .btn-comenzar > button:hover { background-color: #9B0F22 !important; color: #FFFFFF !important; border: 1px solid #FFFFFF;}
-    .aam-red { color: #E31837; font-weight: bold; }
+    .btn-comenzar > button { background-color: #002855 !important; color: #FFFFFF !important; font-size: 20px !important; padding: 15px !important; font-weight: bold; border-radius: 8px;}
+    .btn-comenzar > button:hover { background-color: #001533 !important; color: #FFFFFF !important; border: 1px solid #FFFFFF;}
+    .aam-gold { color: #D49A00; font-weight: bold; }
     
-    .perfil-caja { background-color: #FFFFFF !important; padding: 15px; border-radius: 8px; border-left: 5px solid #002855; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 100%;}
+    .grid-contenedor { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;}
+    
+    @media (max-width: 800px) {
+        .grid-contenedor { grid-template-columns: 1fr; }
+    }
+    
+    .perfil-caja { background-color: #FFFFFF !important; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #002855; display: flex; flex-direction: column; height: 100%;}
     .perfil-caja p, .perfil-caja b, .perfil-caja i { color: #333333 !important; }
+    .perfil-caja h4 { margin-top: 0; margin-bottom: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BASE DE DATOS DE CURSOS OFICIALES AAM ---
+# --- 3. BASE DE DATOS DE CURSOS AAM (CON INTEGRACIÓN SIEMENS) ---
 CURSOS = {
-    "PLC S7 + Cognex": {
-        "TEORIA (Cognitivo)": [
-            "Menciona equipo de protección (EPP), sistema CAE y fuentes de energía primaria/secundaria.",
-            "Diferencia herramientas de maquinado (taladros eléctricos/neumáticos, barrenos con/sin cuerda).",
-            "Diferencia sensores capacitivos/inductivos y tipos de conexión PNP/NPN.",
-            "Identifica elementos de un diagrama eléctrico y el RFL en sistemas neumáticos.",
-            "Conoce el funcionamiento de cilindros neumáticos, candados en cadena y transportadores."
-        ],
-        "SOCIAL (Colaborativo)": [
-            "Explica cómo colocar en la orden de trabajo la información de la actividad que realizó.",
-            "Comunica efectivamente los hallazgos y el origen de señales durante el diagnóstico de fallas."
-        ],
-        "PRACTICA (Experiencial)": [
-            "Agrega sensores, contactores, temporizadores y tarjetas de entradas/salidas.",
-            "Navega en software In-Sight de Cognex y crea una nueva tarea de detección.",
-            "Establece comunicación con el PLC S7 para enviar datos de visión.",
-            "Realiza cambios de lógica en TIA Portal (secuencias automáticas, manuales y limpieza).",
-            "Las variables (tags) en TIA Portal describen correctamente la acción con sus comentarios.",
-            "Diagnostica fallas de PLC por falta de señal usando referencias cruzadas."
-        ]
-    },
-    "PLC S7 + Keyence": {
-        "TEORIA (Cognitivo)": [
-            "Menciona equipo de protección (EPP), sistema CAE y fuentes de energía primaria/secundaria.",
-            "Diferencia herramientas de maquinado (taladros eléctricos/neumáticos, barrenos con/sin cuerda).",
-            "Diferencia sensores capacitivos/inductivos y tipos de conexión PNP/NPN.",
-            "Identifica elementos de un diagrama eléctrico y el RFL en sistemas neumáticos.",
-            "Conoce el funcionamiento de cilindros neumáticos, candados en cadena y transportadores."
-        ],
-        "SOCIAL (Colaborativo)": [
-            "Explica cómo colocar en la orden de trabajo la información de la actividad que realizó.",
-            "Comunica efectivamente los hallazgos y el origen de señales durante el diagnóstico de fallas."
-        ],
-        "PRACTICA (Experiencial)": [
-            "Agrega sensores, contactores, temporizadores y tarjetas de entradas/salidas.",
-            "Navega en software CV-X de Keyence y crea una nueva tarea de detección.",
-            "Establece comunicación con el PLC S7 para enviar datos de visión.",
-            "Realiza cambios de lógica en TIA Portal (secuencias automáticas, manuales y limpieza).",
-            "Las variables (tags) en TIA Portal describen correctamente la acción con sus comentarios.",
-            "Diagnostica fallas de PLC por falta de señal usando referencias cruzadas."
-        ]
-    },
     "PLC AB + Cognex": {
         "TEORIA (Cognitivo)": [
-            "Menciona equipo de protección (EPP), sistema CAE y fuentes de energía primaria/secundaria.",
-            "Diferencia herramientas de maquinado (taladros eléctricos/neumáticos, barrenos con/sin cuerda).",
-            "Diferencia sensores capacitivos/inductivos y tipos de conexión PNP/NPN.",
-            "Identifica elementos de un diagrama eléctrico y el RFL en sistemas neumáticos.",
-            "Conoce el funcionamiento de cilindros neumáticos, candados en cadena y transportadores."
+            "Menciona equipo de protección (EPP), sistema CAE y principios básicos de redes Ethernet/IP.",
+            "Identifica diagramas eléctricos y el proceso correcto de asignación de direcciones IP para módulos de visión.",
+            "Explica teóricamente el procedimiento de instalación de archivos EDS en el software.",
+            "Comprende la estructura de 'Controller tags' y componentes lógicos para la comunicación PLC-Cámara.",
+            "Conoce la configuración de hardware requerida en el software In-Sight de Cognex."
         ],
         "SOCIAL (Colaborativo)": [
-            "Explica cómo colocar en la orden de trabajo la información de la actividad que realizó.",
-            "Comunica efectivamente los hallazgos y el origen de señales durante el diagnóstico de fallas."
+            "Documenta correctamente en la orden de trabajo los cambios de IP, cableado o reemplazos de hardware.",
+            "Comunica efectivamente los hallazgos al rastrear fallas de red entre RS Linx y la cámara Cognex."
         ],
         "PRACTICA (Experiencial)": [
-            "Agrega sensores, contactores, temporizadores y tarjetas de entradas/salidas.",
-            "Navega en software In-Sight de Cognex y crea una nueva tarea de detección.",
-            "Establece comunicación con el PLC AB para enviar datos de visión.",
-            "Realiza cambios de lógica en Studio 5000 (secuencias automáticas, manuales y limpieza).",
-            "Las variables (tags) en Studio 5000 describen correctamente la acción con sus comentarios.",
-            "Diagnostica fallas de PLC por falta de señal usando referencias cruzadas."
+            "Configura el módulo Ethernet genérico usando RS Linx y asigna IPs en la red física.",
+            "Instala archivos EDS exitosamente y crea un nuevo módulo en Studio 5000.",
+            "Configura las variables (tags) y la lógica de escalera necesaria para enviar/recibir datos de visión.",
+            "Navega en el software In-Sight y crea/modifica una tarea de detección (Job).",
+            "Ejecuta prácticas de programación en celda viva, resolviendo fallas de comunicación.",
+            "Diagnostica fallas del PLC por falta de señal usando referencias cruzadas en Studio 5000."
         ]
     },
     "PLC AB + Keyence": {
         "TEORIA (Cognitivo)": [
-            "Menciona equipo de protección (EPP), sistema CAE y fuentes de energía primaria/secundaria.",
-            "Diferencia herramientas de maquinado (taladros eléctricos/neumáticos, barrenos con/sin cuerda).",
-            "Diferencia sensores capacitivos/inductivos y tipos de conexión PNP/NPN.",
-            "Identifica elementos de un diagrama eléctrico y el RFL en sistemas neumáticos.",
-            "Conoce el funcionamiento de cilindros neumáticos, candados en cadena y transportadores."
+            "Menciona equipo de protección (EPP), sistema CAE y principios básicos de redes Ethernet/IP.",
+            "Identifica diagramas eléctricos y el proceso correcto de asignación de direcciones IP para módulos de visión.",
+            "Explica teóricamente el procedimiento de instalación de archivos EDS en el software.",
+            "Comprende la estructura de 'Controller tags' y componentes lógicos para la comunicación PLC-Cámara.",
+            "Conoce la configuración de hardware requerida en el software IV Navigator de Keyence."
         ],
         "SOCIAL (Colaborativo)": [
-            "Explica cómo colocar en la orden de trabajo la actividad realizada.",
-            "Comunica efectivamente los hallazgos y el origen de señales durante el diagnóstico de fallas."
+            "Documenta correctamente en la orden de trabajo los cambios de IP, cableado o reemplazos de hardware.",
+            "Comunica efectivamente los hallazgos al rastrear fallas de red entre RS Linx y la cámara Keyence."
         ],
         "PRACTICA (Experiencial)": [
-            "Agrega sensores, contactores, temporizadores y tarjetas de entradas/salidas.",
-            "Navega en software CV-X de Keyence y crea una nueva tarea de detección.",
-            "Establece comunicación con el PLC AB para enviar datos de visión.",
-            "Realiza cambios de lógica en Studio 5000 (secuencias automáticas, manuales y limpieza).",
-            "Las variables (tags) en Studio 5000 describen correctamente la acción con sus comentarios.",
-            "Diagnostica fallas de PLC por falta de señal usando referencias cruzadas."
+            "Configura el módulo Ethernet genérico usando RS Linx y asigna IPs en la red física.",
+            "Instala archivos EDS exitosamente y crea un nuevo módulo en Studio 5000.",
+            "Configura las variables (tags) y la lógica de escalera necesaria para enviar/recibir datos de visión.",
+            "Navega en el software IV Navigator y crea/modifica una tarea de detección (Job).",
+            "Ejecuta prácticas de programación en celda viva, resolviendo fallas de comunicación.",
+            "Diagnostica fallas del PLC por falta de señal usando referencias cruzadas en Studio 5000."
+        ]
+    },
+    "PLC S7 + Cognex": {
+        "TEORIA (Cognitivo)": [
+            "Menciona equipo de protección (EPP), sistema CAE y principios de arquitectura Profinet IO.",
+            "Identifica diagramas eléctricos y el proceso de asignación de direcciones IP y Nombres de Dispositivo.",
+            "Explica teóricamente el procedimiento de instalación de archivos GSD en el entorno TIA Portal.",
+            "Comprende la estructura de hojas de cálculo y transmisión de datos I/O para comunicación PLC-Cámara.",
+            "Conoce la configuración de hardware requerida en el software In-Sight de Cognex."
+        ],
+        "SOCIAL (Colaborativo)": [
+            "Documenta correctamente en la orden de trabajo los cambios de IP, nombres de nodo o reemplazos de hardware.",
+            "Comunica efectivamente los hallazgos al rastrear fallas de red Profinet entre TIA Portal y la cámara Cognex."
+        ],
+        "PRACTICA (Experiencial)": [
+            "Crea un proyecto nuevo en TIA Portal, configura el hardware y asigna dispositivos de campo Profinet IO.",
+            "Instala archivos GSD exitosamente y agrega el lector/sensor Cognex a la arquitectura de red.",
+            "Asigna direcciones IP y nombres de dispositivo correctamente, realizando la descarga al PLC.",
+            "Navega en el software In-Sight, configura la hoja de cálculo y establece la transmisión de datos I/O.",
+            "Ejecuta prácticas de programación en celda viva, resolviendo fallas de comunicación.",
+            "Diagnostica fallas del PLC por pérdida de conexión usando herramientas de diagnóstico en TIA Portal."
+        ]
+    },
+    "PLC S7 + Keyence": {
+        "TEORIA (Cognitivo)": [
+            "Menciona equipo de protección (EPP), sistema CAE y principios de arquitectura Profinet IO.",
+            "Identifica diagramas eléctricos y el proceso de asignación de direcciones IP y Nombres de Dispositivo.",
+            "Explica teóricamente el procedimiento de instalación de archivos GSD en el entorno TIA Portal.",
+            "Comprende la estructura de transmisión de datos I/O para la comunicación PLC-Cámara.",
+            "Conoce la configuración del protocolo Profinet y la tarjeta de red en IV Navigator de Keyence."
+        ],
+        "SOCIAL (Colaborativo)": [
+            "Documenta correctamente en la orden de trabajo los cambios de IP, nombres de nodo o reemplazos de hardware.",
+            "Comunica efectivamente los hallazgos al rastrear fallas de red Profinet entre TIA Portal y la cámara Keyence."
+        ],
+        "PRACTICA (Experiencial)": [
+            "Configura la tarjeta de red, el protocolo Profinet y asigna la IP al sensor usando IV Navigator.",
+            "Crea un proyecto nuevo en TIA Portal, configura el hardware e instala los archivos GSD correspondientes.",
+            "Asigna dispositivos de campo Profinet IO (sensores Keyence), direcciones IP y nombres de dispositivo.",
+            "Establece la transmisión de datos I/O y ejecuta la descarga de configuración al PLC.",
+            "Ejecuta prácticas de programación en celda viva, resolviendo fallas de comunicación.",
+            "Diagnostica fallas del PLC por pérdida de conexión usando herramientas de diagnóstico en TIA Portal."
         ]
     }
 }
@@ -149,123 +155,137 @@ def calcular_pct_normalizado(valores):
     return sum(puntuaciones) / len(puntuaciones)
 
 # --- 4. MOTOR LÓGICO INTELIGENTE ---
-def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modulo):
+def generar_temario(calificaciones, modulo, dist_sesiones):
+    temas_teoria = []
+    temas_practica = []
+    
+    for i, score in enumerate(calificaciones["TEORIA (Cognitivo)"]):
+        if score <= 2: temas_teoria.append(CURSOS[modulo]["TEORIA (Cognitivo)"][i])
+    for i, score in enumerate(calificaciones["PRACTICA (Experiencial)"]):
+        if score <= 2: temas_practica.append(CURSOS[modulo]["PRACTICA (Experiencial)"][i])
+        
+    if not temas_teoria: temas_teoria.append("Revisión de arquitecturas de red avanzadas y optimización de tiempos de escaneo.")
+    if not temas_practica: temas_practica.append("Simulación de fallas críticas en hardware vivo y recuperación de desastres (Disaster Recovery).")
+    
+    temario_estructurado = []
+    for s, horas in enumerate(dist_sesiones):
+        t_hrs, s_hrs, p_hrs = horas
+        t_topic = temas_teoria[s % len(temas_teoria)]
+        p_topic = temas_practica[s % len(temas_practica)]
+        
+        bloque = {"sesion": "", "teoria": None, "practica": None, "actividad": ""}
+        
+        if p_hrs == 0:
+            bloque["sesion"] = f"<b>Sesión {s+1} [Teoría {t_hrs}h]</b>"
+            bloque["teoria"] = f"<b>Foco Teórico:</b> {t_topic}"
+            bloque["actividad"] = "<font color='#555555'><i>Actividad TWI (Preparar): Análisis en escritorio, lectura de manuales y mapeo de IPs.</i></font>"
+        elif t_hrs == 0:
+            bloque["sesion"] = f"<b>Sesión {s+1} [Práctica {p_hrs}h]</b>"
+            bloque["practica"] = f"<b>Foco Práctico:</b> {p_topic}"
+            bloque["actividad"] = "<font color='#D49A00'><i>Actividad TWI (Intentar): Ejecución 100% autónoma en celda viva, validando tiempos de respuesta bajo estrés.</i></font>"
+        else:
+            bloque["sesion"] = f"<b>Sesión {s+1} [Teoría {t_hrs}h | Práctica {p_hrs}h]</b>"
+            bloque["teoria"] = f"<b>Foco Teórico:</b> {t_topic}"
+            bloque["practica"] = f"<b>Foco Práctico:</b> {p_topic}"
+            bloque["actividad"] = "<font color='#4682B4'><i>Actividad TWI (Presentar/Intentar): Observación guiada progresando a conexión y programación en vivo.</i></font>"
+            
+        temario_estructurado.append(bloque)
+            
+    return temario_estructurado
+
+def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modulo, calificaciones_raw):
     calif_absoluta = ( (pt*0.1 + ps*0.2 + pp*0.7) + (d_score*0.1 + f_score*0.3 + s_score*0.6) ) / 2
     
-    if calif_absoluta >= 80 and pp >= 80 and pt >= 80:
-        perfil = 1 
-    elif pt >= 75 and pp < 75:
-        perfil = 2 
-    elif pp >= 75 and pt < 75:
-        perfil = 3 
-    elif calif_absoluta >= 60 and pp >= 60:
-        perfil = 5 
-    else:
-        perfil = 4 
+    if calif_absoluta >= 80 and pp >= 80 and pt >= 80: perfil = 1 
+    elif pt >= 75 and pp < 75: perfil = 2 
+    elif pp >= 75 and pt < 75: perfil = 3 
+    elif calif_absoluta >= 60 and pp >= 60: perfil = 5 
+    else: perfil = 4 
         
     software_plc = "TIA Portal" if "S7" in modulo else "Studio 5000"
     software_cam = "Cognex" if "Cognex" in modulo else "Keyence"
 
-    # 1. Dona
     if calif_absoluta >= 90:
-        txt_dona = f"<b>Nivel Kirkpatrick:</b> Con un sobresaliente <b>{calif_absoluta:.1f}%</b>, el asociado consolida el Nivel 3. La capacitación se ha traducido en un cambio de conducta medible en la línea de producción."
-    elif calif_absoluta >= 75:
-        txt_dona = f"<b>Nivel Kirkpatrick:</b> El <b>{calif_absoluta:.1f}%</b> indica una retención favorable. Transita hacia el Nivel 3, requiriendo un último empuje en piso para lograr independencia total."
+        txt_dona = f"<b>Nivel Kirkpatrick:</b> {calif_absoluta:.1f}%. Este círculo lleno consolida el Nivel 3. La capacitación se ha traducido en una conducta operativa autónoma."
+    elif calif_absoluta >= 70:
+        txt_dona = f"<b>Nivel Kirkpatrick:</b> {calif_absoluta:.1f}%. Retención favorable. La franja gris representa la brecha restante para lograr la independencia total en piso."
     elif calif_absoluta >= 50:
-        txt_dona = f"<b>Nivel Kirkpatrick:</b> El puntaje de <b>{calif_absoluta:.1f}%</b> refleja asimilación parcial. Se encuentra estancado en el Nivel 2; entiende conceptos pero duda al aplicarlos."
+        txt_dona = f"<b>Nivel Kirkpatrick:</b> {calif_absoluta:.1f}%. Asimilación parcial. Entiende conceptos (Nivel 2) pero la gráfica demuestra dudas al momento de ejecutarlos."
     else:
-        txt_dona = f"<b>Nivel Kirkpatrick:</b> Alerta de riesgo operativo (<b>{calif_absoluta:.1f}%</b>). No hay evidencia de retención. Liberar al asociado en estas condiciones representa un riesgo para los equipos."
+        txt_dona = f"<b>Nivel Kirkpatrick:</b> {calif_absoluta:.1f}%. Ausencia de retención. Liberar al asociado en estas condiciones representa un riesgo operativo para la maquinaria."
 
-    # 2. Barras
     if perfil == 1:
-        txt_barras = f"<b>Metodología 70-20-10:</b> Balance visual excelente. El sólido <b>{pt:.1f}% en Teoría</b> soporta exitosamente el <b>{pp:.1f}% de Ejecución Práctica</b>. El aprendizaje colaborativo también destaca positivamente."
+        txt_barras = f"<b>Metodología 70-20-10:</b> Balance visual excelente. El sólido {pt:.1f}% en Teoría soporta exitosamente el {pp:.1f}% de ejecución Práctica en piso."
     elif perfil == 2:
-        txt_barras = f"<b>Metodología 70-20-10:</b> La gráfica evidencia fricción psicomotriz. Mantiene un <b>{pt:.1f}% en Teoría</b>, pero al enfrentarse a la máquina, la ejecución cae a un <b>{pp:.1f}%</b>."
+        txt_barras = f"<b>Metodología 70-20-10:</b> Fricción psicomotriz. Mantiene un alto {pt:.1f}% en Teoría, pero frente a la máquina real, la barra de ejecución se desploma a {pp:.1f}%."
     elif perfil == 3:
-        txt_barras = f"<b>Metodología 70-20-10:</b> Riesgo de inercia mecánica detectado. La barra práctica es alta (<b>{pp:.1f}%</b>), pero el deficiente <b>{pt:.1f}% teórico</b> indica que no domina la lógica de las conexiones."
+        txt_barras = f"<b>Metodología 70-20-10:</b> Inercia mecánica. Práctica alta ({pp:.1f}%), pero el {pt:.1f}% teórico indica que el asociado no domina la lógica de las conexiones."
     else:
-        txt_barras = f"<b>Metodología 70-20-10:</b> Las barras se encuentran sumamente deprimidas (Práctica en <b>{pp:.1f}%</b>). Esta carencia transversal demuestra que el asociado requiere reiniciar el módulo instruccional."
+        txt_barras = f"<b>Metodología 70-20-10:</b> Barras deprimidas de forma transversal (Teoría: {pt:.1f}%, Práctica: {pp:.1f}%). Evidencia la necesidad de reiniciar el módulo instruccional."
 
-    # 3. Curva
     if s_score >= f_score and s_score >= 80:
-        txt_curva = f"<b>Curva Cognitiva:</b> Trayectoria ascendente cerrando en <b>{s_score} pts</b>. Superó exitosamente la fase diagnóstica y logró aplicar los conocimientos en la prueba final autónoma."
-    elif s_score < f_score and s_score < 70:
-        txt_curva = f"<b>Curva Cognitiva:</b> Desplome en la fase final (bajó a <b>{s_score} pts</b>). Esto señala que el asociado sufre ansiedad o bloqueo de memoria cuando se le retira la supervisión guiada."
-    elif d_score < 40 and f_score < 40 and s_score < 40:
-        txt_curva = f"<b>Curva Cognitiva:</b> La línea roja permanece plana y deficiente en la base. Según la Taxonomía de Bloom, el alumno ni siquiera logró cimentar la etapa básica de 'Memorizar'."
+        txt_curva = f"<b>Curva Cognitiva:</b> Trayectoria ascendente cerrando en {s_score} pts. Superó la fase diagnóstica y logró aplicar los conocimientos en la evaluación final."
+    elif s_score < f_score and s_score < 75:
+        txt_curva = f"<b>Curva Cognitiva:</b> Desplome en la fase final (cayendo a {s_score} pts). La gráfica señala ansiedad o bloqueo cuando se le retira la supervisión del instructor."
+    elif d_score < 50 and f_score < 50 and s_score < 50:
+        txt_curva = f"<b>Curva Cognitiva:</b> La trayectoria permanece plana y deficiente. Según Bloom, el alumno no logró cimentar la etapa básica de 'Memorizar' los conceptos."
     else:
-        txt_curva = f"<b>Curva Cognitiva:</b> El avance es inconsistente o moderado. Cerrar con <b>{s_score} pts</b> indica que existen huecos técnicos que impidieron una comprensión fluida del sistema."
+        txt_curva = f"<b>Curva Cognitiva:</b> Avance inconsistente cerrando en {s_score} pts. Existen huecos técnicos que impidieron una progresión fluida hacia la meta operativa."
 
-    # 4. Radar Inteligente (Corrección de Simetría)
-    if pt < 20 and pp < 20 and ps < 20:
-        txt_radar = f"<b>Huella de Brecha:</b> El polígono colapsado en el centro ({pt:.1f}%) evidencia una carencia estructural en todas las dimensiones formativas. Se requiere reiniciar el entrenamiento base."
-    elif abs(pt - pp) <= 10 and pt >= 80:
-        txt_radar = f"<b>Huella de Brecha:</b> El polígono muestra un equilibrio geométrico de alto rendimiento. Con <b>{pt:.1f}% en lógica teórica</b> y <b>{pp:.1f}% en destreza manual</b>, el asociado tiene un perfil ideal."
-    elif abs(pt - pp) <= 10 and pt < 80:
-        txt_radar = f"<b>Huella de Brecha:</b> El polígono es simétrico, pero sus vértices de <b>{pt:.1f}%</b> indican que el asociado requiere un desarrollo proporcional en ambas áreas (teoría y práctica)."
-    elif pt > pp:
-        txt_radar = f"<b>Huella de Brecha:</b> Este polígono mapea una clara asimetría cognitiva. Se detecta un fuerte sesgo hacia la abstracción lógica (<b>{pt:.1f}%</b>), dejando rezagada la destreza manual (<b>{pp:.1f}%</b>)."
-    else:
-        txt_radar = f"<b>Huella de Brecha:</b> Este polígono mapea una clara asimetría operativa. Se detecta un fuerte sesgo hacia la repetición mecánica (<b>{pp:.1f}%</b>), dejando vulnerable la comprensión lógica (<b>{pt:.1f}%</b>)."
+    if pt < 20 and pp < 20 and ps < 20: txt_radar = f"<b>Huella de Brecha:</b> Polígono colapsado. Carencia estructural formativa transversal."
+    elif abs(pt - pp) <= 10 and pt >= 80: txt_radar = f"<b>Huella de Brecha:</b> Equilibrio de alto rendimiento. Perfil simétrico ideal y competente."
+    elif abs(pt - pp) <= 10 and pt < 80: txt_radar = f"<b>Huella de Brecha:</b> Simétrico, pero requiere desarrollo equitativo en todas las áreas evaluadas."
+    elif pt > pp: txt_radar = f"<b>Huella de Brecha:</b> Asimetría operativa. Fuerte sesgo hacia la abstracción lógica, baja destreza manual en equipo."
+    else: txt_radar = f"<b>Huella de Brecha:</b> Asimetría cognitiva. Fuerte sesgo mecánico, vulnerable en deducción de lógica de red."
 
-    # 5. DICTAMEN TÉCNICO Y GANTT
     if perfil == 1:
-        bloom_txt = f"<b>Evaluación de Dominio:</b> {nombre} es capaz de deducir lógicas de programación y diagnosticar fallas en <b>{software_plc}</b> y visión <b>{software_cam}</b> sin depender de rutinas pre-memorizadas."
-        modelo_txt = "<b>Justificación del Cronograma:</b> No requiere rescate. Se proponen <b>2 sesiones</b> enfocadas exclusivamente en validación autónoma en piso y funciones de mentoría."
+        bloom_txt = f"<b>Evaluación:</b> Capaz de deducir lógicas y diagnosticar fallas en <b>{software_plc}</b> y <b>{software_cam}</b> sin rutinas pre-memorizadas."
+        modelo_txt = "<b>Justificación del Cronograma:</b> El asociado presenta un equilibrio ideal 70-20-10. Se recetan 2 sesiones de mantenimiento enfocadas 100% en piso para consolidar autonomía."
         dist_sesiones = [(0.0, 1.0, 3.0), (0.0, 0.0, 4.0)] 
         pasos_cortos = ["Mentoría Guiada", "Autonomía Total"]
-        pasos = [
-            "Validar su independencia asignándole órdenes de trabajo preventivas de alta complejidad.",
-            "Asignarle el rol de asociado guía ('Presentar') para apoyar a compañeros con menor desempeño."
-        ]
+        pasos = ["Validar su independencia asignándole órdenes preventivas de alta complejidad.", "Asignarle el rol de asociado guía ('Presentar') para apoyar a compañeros con menor desempeño."]
+        dictamen_final = "<font color='#28A745'><b>DICTAMEN: APROBADO.</b> El asociado cumple y excede los estándares operativos de AAM.</font>"
     elif perfil == 2:
-        bloom_txt = f"<b>Evaluación de Dominio:</b> Domina la teoría y lee planos correctamente. Su área de oportunidad radica en transitar de la teoría a la conexión física de hardware."
-        modelo_txt = "<b>Justificación del Cronograma:</b> Se requiere construir confianza táctil. El plan asigna <b>4 sesiones</b> aumentando gradualmente el tiempo de 'Intentar' (Ejecución libre)."
+        bloom_txt = f"<b>Evaluación:</b> Domina la lectura de planos. Área de oportunidad en la transición táctil hacia la conexión de hardware."
+        modelo_txt = "<b>Justificación del Cronograma:</b> Para corregir el sesgo y acercarlo al balance 70-20-10, el plan invierte la carga forzando 4 sesiones con mayoría de práctica en celda (Try-Out)."
         dist_sesiones = [(1.0, 2.0, 1.0), (0.5, 1.5, 2.0), (0.0, 1.0, 3.0), (0.0, 0.0, 4.0)]
         pasos_cortos = ["Observación", "Práctica Asistida", "Práctica Media", "Ejecución Libre"]
-        pasos = [
-            f"Frenar el uso de manuales. Priorizar rutinas repetitivas de conexión de tarjetas I/O en {software_plc}.",
-            "Implementar sesiones de observación activa donde el instructor solo intervenga en caso de riesgo a la maquinaria."
-        ]
+        pasos = [f"Frenar el uso de manuales. Priorizar rutinas repetitivas de conexión de tarjetas I/O en {software_plc}.", "Implementar sesiones de observación activa donde el instructor solo intervenga en caso de riesgo."]
+        dictamen_final = "<font color='#D49A00'><b>DICTAMEN: CONDICIONADO.</b> Certificación sujeta al cumplimiento estricto del Plan de Acción y Syllabus operativo.</font>"
     elif perfil == 3:
-        bloom_txt = f"<b>Evaluación de Dominio:</b> Ejecución operativa frágil. Logra mover la máquina, pero carece de la base analítica necesaria para rastrear fallas atípicas de red o voltaje."
-        modelo_txt = "<b>Justificación del Cronograma:</b> Se debe corregir el empirismo. El plan exige <b>3 sesiones</b> con alta carga de 'Preparar' (Revisión teórica) antes de dejarlo tocar el equipo."
+        bloom_txt = f"<b>Evaluación:</b> Ejecución operativa frágil. Carece de la base analítica para rastrear fallas atípicas de red."
+        modelo_txt = "<b>Justificación del Cronograma:</b> Para restituir el balance 70-20-10, este plan correctivo frena temporalmente la práctica y compensa inyectando las horas de teoría faltantes."
         dist_sesiones = [(3.0, 1.0, 0.0), (2.0, 1.0, 1.0), (0.5, 1.0, 2.5)]
         pasos_cortos = ["Revisión Teórica", "Balance en Piso", "Validación Técnica"]
-        pasos = [
-            "Impedir intervenciones correctivas sin supervisión hasta que valide la lectura fluida de esquemáticos.",
-            f"Obligar al asociado a explicar verbalmente el flujo lógico de la señal en {software_plc} antes de puentear señales."
-        ]
+        pasos = ["Impedir intervenciones correctivas sin supervisión hasta que valide la lectura fluida de esquemáticos.", f"Obligar al asociado a explicar verbalmente el flujo lógico de la señal en {software_plc} antes de puentear señales."]
+        dictamen_final = "<font color='#D49A00'><b>DICTAMEN: CONDICIONADO.</b> Certificación sujeta a la asimilación teórica dictada en el Syllabus y Plan de Acción.</font>"
     elif perfil == 5:
-        bloom_txt = f"<b>Evaluación de Dominio:</b> Desempeño medio. Logra resolver problemas básicos, pero la falta de soltura indica que la fase de 'Aplicación' aún requiere refuerzo continuo."
-        modelo_txt = "<b>Justificación del Cronograma:</b> Perfil en maduración. Se sugieren <b>3 sesiones</b> estándar de refuerzo equilibrado para solidificar la competencia."
+        bloom_txt = f"<b>Evaluación:</b> Desempeño medio. Resuelve problemas básicos pero requiere refuerzo para solidificar tiempos de respuesta."
+        modelo_txt = "<b>Justificación del Cronograma:</b> Perfil en maduración. Se sugieren 3 sesiones de refuerzo balanceadas para acercar el perfil a la proporción operativa óptima (70-20-10)."
         dist_sesiones = [(1.0, 1.0, 2.0), (0.5, 1.0, 2.5), (0.0, 1.0, 3.0)]
-        pasos_cortos = ["Repaso General", "Práctica Continua", "Liberación en Celda"]
-        pasos = [
-            "Continuar asignándole mantenimientos preventivos regulares para que gane velocidad.",
-            "Agendar una breve validación diagnóstica en un mes para asegurar que no haya pérdida de conocimiento."
-        ]
+        pasos_cortos = ["Repaso General", "Práctica Continua", "Liberación"]
+        pasos = ["Continuar asignándole mantenimientos preventivos regulares para que gane velocidad.", "Agendar una breve validación diagnóstica en un mes para asegurar retención."]
+        dictamen_final = "<font color='#4682B4'><b>DICTAMEN: EN TRANSICIÓN.</b> Se requiere validar tiempos de respuesta tras concluir las sesiones de refuerzo.</font>"
     else: 
-        bloom_txt = f"<b>Evaluación de Dominio:</b> Riesgo Crítico. El asociado carece de las bases mínimas requeridas. Incapaz de leer diagramas o de diagnosticar fallas básicas en <b>{software_plc}</b>."
+        bloom_txt = f"<b>Evaluación:</b> Riesgo Crítico. Incapaz de leer diagramas o de diagnosticar fallas básicas en <b>{software_plc}</b>."
         if calif_absoluta <= 20: 
-            modelo_txt = "<b>Justificación del Cronograma:</b> Foco rojo formativo. El sistema levanta un <b>Plan de Rescate de 6 Sesiones</b> iniciando completamente desde el escritorio."
+            modelo_txt = "<b>Justificación del Cronograma:</b> Brecha profunda. Se formula un plan de rescate de 6 Sesiones iniciando desde el escritorio para reconstruir las bases del modelo formativo."
             dist_sesiones = [(3.5, 0.5, 0.0), (3.0, 1.0, 0.0), (2.0, 1.5, 0.5), (1.0, 2.0, 1.0), (0.5, 1.0, 2.5), (0.0, 1.0, 3.0)]
-            pasos_cortos = ["Principios Eléctricos", "Fundamentos PLC", "Observación Directa", "Práctica Controlada", "Práctica Media", "Examen Final"]
+            pasos_cortos = ["Fundamentos", "Lectura Planos", "Observación", "Práctica Controlada", "Práctica Media", "Examen Final"]
         elif calif_absoluta <= 45:
-            modelo_txt = "<b>Justificación del Cronograma:</b> Deficiencia grave detectada. Se estructura un <b>Plan Correctivo de 5 Sesiones</b> para renivelación teórica y práctica guiada."
+            modelo_txt = "<b>Justificación del Cronograma:</b> Deficiencia grave. Se estructura un Plan de 5 Sesiones enfocando la primera mitad en nivelación teórica, para luego saltar a la práctica."
             dist_sesiones = [(3.0, 1.0, 0.0), (2.0, 1.5, 0.5), (1.0, 2.0, 1.0), (0.5, 1.5, 2.0), (0.0, 1.0, 3.0)]
-            pasos_cortos = ["Bases Teóricas", "Análisis de Fallas", "Práctica Ligera", "Práctica Continua", "Evaluación Final"]
+            pasos_cortos = ["Bases Teóricas", "Análisis Fallas", "Práctica Ligera", "Práctica Continua", "Evaluación Final"]
         else:
-            modelo_txt = "<b>Justificación del Cronograma:</b> Incompetencia superable. Se dictamina un <b>Plan de Apoyo de 4 Sesiones</b> para solventar las dudas que están bloqueando la ejecución."
+            modelo_txt = "<b>Justificación del Cronograma:</b> Incompetencia superable. Se dictamina un Plan de 4 Sesiones dosificando las horas de forma guiada para recuperar la confianza del asociado."
             dist_sesiones = [(2.0, 1.5, 0.5), (1.0, 2.0, 1.0), (0.5, 1.5, 2.0), (0.0, 1.0, 3.0)]
-            pasos_cortos = ["Nivelación Aula", "Observación Táctica", "Ejecución Guiada", "Liberación a Piso"]
-            
-        pasos = [
-            "Pausar inmediatamente la autorización del asociado para manipular celdas vivas para evitar riesgos de averías.",
-            "Regresar a las bases de aula: instrucción intensiva sobre el funcionamiento de multímetros y tipos de sensores físicos."
-        ]
+            pasos_cortos = ["Nivelación Aula", "Observación", "Ejecución Guiada", "Liberación Piso"]
+        pasos = ["Pausar autorización para manipular celdas vivas temporalmente.", "Regresar a las bases de aula: instrucción intensiva sobre el funcionamiento de multímetros y direccionamiento IP."]
+        dictamen_final = "<font color='#343A40'><b>DICTAMEN: SUSPENDIDO.</b> Riesgo operativo crítico. Requiere re-certificación obligatoria y nula intervención autónoma en piso.</font>"
 
-    return txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, pasos_cortos, dist_sesiones
+    temario_estructurado = generar_temario(calificaciones_raw, modulo, dist_sesiones)
+
+    return txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, temario_estructurado, pasos_cortos, dist_sesiones, dictamen_final
 
 # ==========================================
 #        VISTA 1: PORTAL ESTRATÉGICO
@@ -287,17 +307,17 @@ if st.session_state.vista == 'landing':
 
     col_t1, col_t2 = st.columns([1.2, 1])
     with col_t1:
-        st.markdown("### 📊 1. El Marco 70:20:10 (Lombardo & Eichinger)")
-        st.write("Desarrollado por el Center for Creative Leadership, estipula que el aprendizaje de alto impacto en adultos no ocurre leyendo manuales, sino en la ejecución iterativa:")
+        st.markdown("### 📊 1. El Marco 70:20:10")
+        st.write("Medición de transferencia real del conocimiento (Lombardo & Eichinger):")
         st.markdown("""
-        *   <span class='aam-red'>TEORÍA (Cognitivo):</span> Representa la carga formal e instruccional (10%).
-        *   <span class='aam-red'>SOCIAL (Colaborativo):</span> Representa la capacidad de documentar y colaborar técnicamente (20%).
-        *   <span class='aam-red'>PRÁCTICA (Experiencial):</span> Representa el núcleo de destreza operativa en máquina (70%).
+        *   <span class='aam-gold'>TEORÍA (Cognitivo):</span> Carga formal e instruccional (10%).
+        *   <span class='aam-gold'>SOCIAL (Colaborativo):</span> Capacidad de documentar y colaborar (20%).
+        *   <span class='aam-gold'>PRÁCTICA (Experiencial):</span> Destreza operativa en máquina viva (70%).
         """, unsafe_allow_html=True)
     with col_t2:
         df_70 = pd.DataFrame({'Dimensión': ['Experiencia en Piso', 'Aprendizaje Social', 'Teoría Formal'], 'Impacto (%)': [70, 20, 10]})
-        fig_70 = px.pie(df_70, values='Impacto (%)', names='Dimensión', hole=0.5, color='Dimensión', color_discrete_map={'Experiencia en Piso':'#E31837', 'Aprendizaje Social':'#4682B4', 'Teoría Formal':'#002855'})
-        fig_70.update_layout(title_text='Modelo de Retención Organizacional', title_x=0.5, margin=dict(t=50, b=0, l=0, r=0))
+        fig_70 = px.pie(df_70, values='Impacto (%)', names='Dimensión', hole=0.5, color='Dimensión', color_discrete_map={'Experiencia en Piso':'#FFB81C', 'Aprendizaje Social':'#8CB4E2', 'Teoría Formal':'#002855'})
+        fig_70.update_layout(title_text='Modelo de Retención Ideal', title_x=0.5, margin=dict(t=30, b=0, l=0, r=0))
         st.plotly_chart(fig_70, use_container_width=True)
 
     st.markdown("---")
@@ -305,60 +325,50 @@ if st.session_state.vista == 'landing':
     col_b1, col_b2 = st.columns([1, 1.2])
     with col_b1:
         df_bloom = pd.DataFrame({'Fase de Evaluación': ['Diagnóstica (S1)', 'Formativa (S3)', 'Sumativa (Final)'], 'Peso en Calificación': [10, 30, 60], 'Nivel Cognitivo': ['LOTS (Recordar)', 'MOTS (Aplicar)', 'HOTS (Crear/Resolver)']})
-        fig_bloom = px.bar(df_bloom, x='Peso en Calificación', y='Fase de Evaluación', orientation='h', color='Fase de Evaluación', text='Nivel Cognitivo', color_discrete_sequence=['#A0AAB5', '#4682B4', '#E31837'])
-        fig_bloom.update_layout(title_text='Evaluación Continua (Modelo Kirkpatrick)', title_x=0.5, showlegend=False)
+        fig_bloom = px.bar(df_bloom, x='Peso en Calificación', y='Fase de Evaluación', orientation='h', color='Fase de Evaluación', text='Nivel Cognitivo', color_discrete_sequence=['#A0AAB5', '#8CB4E2', '#FFB81C'])
+        fig_bloom.update_layout(title_text='Evaluación Continua', title_x=0.5, showlegend=False, margin=dict(t=30, b=0, l=0, r=0))
         st.plotly_chart(fig_bloom, use_container_width=True)
     with col_b2:
         st.markdown("### 🧠 2. Taxonomía de Bloom & Metodología TWI")
-        st.write("AAM SkillMatrix no solo mide el *qué*, sino el *cómo*. El motor genera un cronograma dinámico basado en el estándar automotriz **Training Within Industry (TWI)**, dividiendo las sesiones de 4 horas en:")
+        st.write("Generación de Syllabus Dinámico basado en **Training Within Industry (TWI)**:")
         st.markdown("""
-        1.  **Preparar (Teoría):** El instructor valida la comprensión teórica de manuales y diagramas.
-        2.  **Presentar (Social):** El instructor realiza el trabajo mientras el asociado analiza (Observación Activa).
-        3.  **Intentar (Práctica):** El asociado interviene operativamente la máquina bajo estrés controlado.
+        1.  **Preparar (Teoría):** El instructor valida manuales y diagramas eléctricos/redes.
+        2.  **Presentar (Social):** Observación Activa (Shadowing) y documentación.
+        3.  **Intentar (Práctica):** Intervención operativa en maquinaria bajo estrés.
         """)
-        st.info("La combinación de la **Rúbrica Matricial** y las evaluaciones continuas permite a nuestros algoritmos predecir y formular **Cronogramas de Rescate** personalizados.")
+        st.info("La plataforma procesa micro-evaluaciones para formular un **Syllabus (Plan de Estudios Automático)** compensatorio para restituir el balance 70-20-10.")
 
     st.markdown("---")
     
     st.markdown("### 🔬 Matriz Diagnóstica: Perfiles de Ejecución Esperados")
     st.write("El Motor de Evaluación procesa las métricas para encasillar al asociado en perfiles técnicos basados en el modelo de las **Etapas de la Competencia (Broadwell, 1969)**:")
     
-    c_perf1, c_perf2 = st.columns(2)
-    with c_perf1:
-        st.markdown("""
+    st.markdown("""
+    <div class="grid-contenedor">
         <div class="perfil-caja" style="border-left-color: #28A745;">
-            <h4 style="color: #28A745; margin-top: 0;">1. Competencia Inconsciente (Perfil Óptimo)</h4>
+            <h4 style="color: #28A745;">1. Competencia Inconsciente (Perfil Óptimo)</h4>
             <p><b>Síntoma:</b> Altos puntajes teóricos y prácticos consistentes.</p>
             <p><b>Diagnóstico:</b> El asociado opera por naturaleza. Deduce lógicas de programación sin necesidad de consultar el manual en cada paso.</p>
         </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="perfil-caja" style="border-left-color: #FFC107;">
-            <h4 style="color: #FFC107; margin-top: 0;">3. Ejecución Empírica (Riesgo Mecánico)</h4>
-            <p><b>Síntoma:</b> Baja Teoría, Alta Práctica en celda.</p>
-            <p><b>Diagnóstico:</b> Sabe <i>qué</i> botón presionar por pura memoria repetitiva, pero ignora el <i>por qué</i>. Existe un alto riesgo ante fallas atípicas.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c_perf2:
-        st.markdown("""
         <div class="perfil-caja" style="border-left-color: #4682B4;">
-            <h4 style="color: #4682B4; margin-top: 0;">2. Ilusión de Competencia (Sesgo de Aula)</h4>
+            <h4 style="color: #4682B4;">2. Ilusión de Competencia (Sesgo de Aula)</h4>
             <p><b>Síntoma:</b> Alta retención Teórica, Baja destreza Práctica.</p>
             <p><b>Diagnóstico:</b> Fenómeno clásico del alumno destacado que se congela frente a la presión de la maquinaria real y viva.</p>
         </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="perfil-caja" style="border-left-color: #E31837;">
-            <h4 style="color: #E31837; margin-top: 0;">4. Incompetencia Consciente (Crítico)</h4>
+        <div class="perfil-caja" style="border-left-color: #FFC107;">
+            <h4 style="color: #FFC107;">3. Ejecución Empírica (Riesgo Mecánico)</h4>
+            <p><b>Síntoma:</b> Baja Teoría, Alta Práctica en celda.</p>
+            <p><b>Diagnóstico:</b> Sabe <i>qué</i> botón presionar por pura memoria repetitiva, pero ignora el <i>por qué</i>. Existe un alto riesgo ante fallas atípicas.</p>
+        </div>
+        <div class="perfil-caja" style="border-left-color: #343A40;">
+            <h4 style="color: #343A40;">4. Incompetencia Consciente (Crítico)</h4>
             <p><b>Síntoma:</b> Caída transversal en evaluaciones y rúbricas en piso.</p>
             <p><b>Diagnóstico:</b> Sobrecarga cognitiva severa. Obligar al asociado a intervenir el equipo generará estrés innecesario y probables averías.</p>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="btn-comenzar">', unsafe_allow_html=True)
     st.button("⚙️ Inicializar Motor de Certificación AAM", on_click=activar_motor, type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -368,10 +378,10 @@ if st.session_state.vista == 'landing':
 # ==========================================
 elif st.session_state.vista == 'transition':
     st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
-    with st.spinner("Conectando con bases de datos AAM University..."):
-        time.sleep(0.3)
-    with st.spinner("Calibrando rúbricas de desempeño operativo..."):
-        time.sleep(0.3)
+    with st.spinner("Sincronizando con temarios oficiales AAM University..."):
+        time.sleep(0.4)
+    with st.spinner("Calibrando algoritmos de predicción ROI..."):
+        time.sleep(0.4)
     st.session_state.vista = 'app'
     st.rerun()
 
@@ -387,36 +397,34 @@ elif st.session_state.vista == 'app':
     with col2:
         if os.path.exists("logo_aam.png"):
             st.image("logo_aam.png", use_container_width=True) 
-    st.markdown("<h2 style='text-align: center; margin-top: -10px;'>Motor de Evaluación Técnica</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: -10px;'>Motor de Micro-Evaluación Técnica</h2>", unsafe_allow_html=True)
     st.markdown("---")
 
-    st.subheader("📋 Información de la Evaluación")
-    col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns([2, 2, 1.5, 2.5, 2.0])
-    nombre = col_d1.text_input("Asociado:")
-    evaluador = col_d2.text_input("Instructor:")
-    fecha = col_d3.date_input("Fecha:")
+    col_d1, col_d2, col_d3, col_d4 = st.columns([2.5, 2, 1.5, 3.0])
+    nombre = col_d1.text_input("Asociado Evaluado:")
+    evaluador = col_d2.text_input("Instructor Responsable:")
+    fecha = col_d3.date_input("Fecha de Cierre:")
     modulo = col_d4.selectbox("Certificación AAM a evaluar:", list(CURSOS.keys()))
-    num_ses = col_d5.number_input("Sesiones Impartidas (Histórico):", min_value=1, max_value=10, value=5, help="Dato estadístico. El Motor propondrá un nuevo plan a futuro.")
 
     st.markdown("---")
 
     st.subheader("1. Progreso Académico (Exámenes)")
     c_ex1, c_ex2, c_ex3 = st.columns(3)
     with c_ex1:
-        diag_score = st.number_input("Diagnóstica (Sesión 1 - Base)", min_value=0, max_value=100, value=45)
+        diag_score = st.number_input("Diagnóstica (Sondeo / S1)", min_value=0, max_value=100, value=45)
     with c_ex2:
-        form_score = st.number_input("Formativa (Intermedia - Guiada)", min_value=0, max_value=100, value=80)
+        form_score = st.number_input("Formativa (Prácticas / S3)", min_value=0, max_value=100, value=80)
     with c_ex3:
-        sum_score = st.number_input("Sumativa (Final - Autónoma)", min_value=0, max_value=100, value=90)
+        sum_score = st.number_input("Sumativa (Troubleshooting Final)", min_value=0, max_value=100, value=90)
 
     st.markdown("---")
 
     st.subheader("2. Rúbrica de Desempeño Operativo")
     st.info("""
-    **📘 Guía de Calificación (Escala AAM)**
-    * **1 - Conoce:** Sabe la teoría básica, pero es incapaz de intervenir físicamente.
-    * **2 - Con Ayuda:** Logra ejecutar rutinas operativas pero requiere constante supervisión.
-    * **3 - Domina:** Ejecuta reparaciones y ajustes de manera autónoma, rápida y segura.
+    **📘 Guía de Calificación (Escala de Campo AAM)**
+    * **1 - Conoce:** Entiende el concepto, pero es incapaz de configurar el software/hardware físicamente.
+    * **2 - Con Ayuda:** Logra realizar las conexiones/programación pero requiere asistencia técnica constante.
+    * **3 - Domina:** Ejecuta el Troubleshooting y la configuración de red de forma 100% autónoma.
     """)
 
     calificaciones = {"TEORIA (Cognitivo)": [], "SOCIAL (Colaborativo)": [], "PRACTICA (Experiencial)": []}
@@ -434,29 +442,29 @@ elif st.session_state.vista == 'app':
     st.markdown("---")
 
     if st.session_state.descargado:
-        st.success(f"✅ **¡Reporte Generado Exitosamente!** El análisis avanzado de competencias de {nombre} ya se encuentra en tus descargas.")
-        st.toast('Reporte Ejecutivo procesado', icon='⚙️')
+        st.success(f"✅ **¡Sistema Predictivo Ejecutado!** El Plan de Acción y Proyección de Retorno (ROI) de {nombre} están listos en tu PDF.")
+        st.toast('Syllabus generado exitosamente', icon='📈')
 
-    if st.button("📄 Procesar y Generar Plan de Acción Dinámico (PDF)", type="primary", use_container_width=True):
+    if st.button("📄 Generar Plan de Acción, Syllabus Dinámico y Proyección (PDF)", type="primary", use_container_width=True):
         if not nombre:
             st.error("Por favor, ingresa el nombre del asociado.")
         else:
-            with st.spinner("Analizando variables y estructurando cronograma preventivo TWI..."):
+            with st.spinner("Analizando rúbricas, cruzando Syllabus y calculando proyección de ROI..."):
                 
                 pct_t = calcular_pct_normalizado(calificaciones["TEORIA (Cognitivo)"])
                 pct_s = calcular_pct_normalizado(calificaciones["SOCIAL (Colaborativo)"])
                 pct_p = calcular_pct_normalizado(calificaciones["PRACTICA (Experiencial)"])
                 
-                txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, pasos_cortos, dist_sesiones = generar_textos_dinamicos(pct_t, pct_s, pct_p, diag_score, form_score, sum_score, nombre, modulo)
+                txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, temario_estructurado, pasos_cortos, dist_sesiones, dictamen_final = generar_textos_dinamicos(pct_t, pct_s, pct_p, diag_score, form_score, sum_score, nombre, modulo, calificaciones)
                 num_ses_propuestas = len(dist_sesiones)
                 
                 calif_final_matriz = (pct_t * 0.10) + (pct_s * 0.20) + (pct_p * 0.70)
                 calif_examenes = (diag_score * 0.10) + (form_score * 0.30) + (sum_score * 0.60)
                 calif_absoluta = (calif_final_matriz + calif_examenes) / 2
 
-                # === GRÁFICAS ===
+                # === GRÁFICAS DE ESTADO ACTUAL ===
                 fig1, ax1 = plt.subplots(figsize=(4, 4))
-                color_f = '#28A745' if calif_absoluta >= 80 else ('#FFC107' if calif_absoluta >= 70 else '#E31837')
+                color_f = '#28A745' if calif_absoluta >= 80 else ('#FFC107' if calif_absoluta >= 70 else '#FFB81C')
                 ax1.pie([calif_absoluta, 100-calif_absoluta], colors=[color_f, '#EEEEEE'], startangle=90, wedgeprops=dict(width=0.3))
                 ax1.text(0, 0, f'{calif_absoluta:.1f}%', ha='center', va='center', fontsize=24, fontweight='bold', color='#002855')
                 ax1.set_title("Score de Competencia Global", fontweight='bold', color='#002855', fontsize=11)
@@ -465,7 +473,7 @@ elif st.session_state.vista == 'app':
                 plt.close(fig1)
 
                 fig2, ax2 = plt.subplots(figsize=(5, 4))
-                barras = ax2.bar(['Teoría\n(10%)', 'Social\n(20%)', 'Práctica\n(70%)'], [pct_t, pct_s, pct_p], color=['#002855', '#4682B4', '#E31837'])
+                barras = ax2.bar(['Teoría\n(10%)', 'Social\n(20%)', 'Práctica\n(70%)'], [pct_t, pct_s, pct_p], color=['#002855', '#8CB4E2', '#FFB81C'])
                 ax2.set_ylim(0, 110)
                 ax2.spines['top'].set_visible(False)
                 ax2.spines['right'].set_visible(False)
@@ -477,15 +485,15 @@ elif st.session_state.vista == 'app':
                 plt.close(fig2)
 
                 fig3, ax3 = plt.subplots(figsize=(5, 4))
-                fases = ['S1(Diag)', 'S3(Form)', 'Final']
+                fases = ['S1', 'S3', 'Final']
                 ax3.plot(fases, [45, 75, 95], marker='o', linestyle='--', color='gray', label='Meta', linewidth=2)
-                ax3.plot(fases, [diag_score, form_score, sum_score], marker='s', linestyle='-', color='#E31837', label='Real', linewidth=3, markersize=6)
+                ax3.plot(fases, [diag_score, form_score, sum_score], marker='s', linestyle='-', color='#FFB81C', label='Real', linewidth=3, markersize=6)
                 ax3.set_ylim(0, 110)
                 ax3.grid(True, linestyle=':', alpha=0.6)
                 ax3.legend(loc='lower right', fontsize=8)
-                ax3.set_title("Trayectoria de Curva de Aprendizaje", fontweight='bold', color='#002855', fontsize=11)
+                ax3.set_title("Trayectoria de Aprendizaje", fontweight='bold', color='#002855', fontsize=11)
                 for i, val in enumerate([diag_score, form_score, sum_score]):
-                    ax3.annotate(f"{val}", (fases[i], val+4), ha='center', fontweight='bold', color='#E31837', fontsize=9)
+                    ax3.annotate(f"{val}", (fases[i], val+4), ha='center', fontweight='bold', color='#D49A00', fontsize=9)
                 img_tendencia = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                 plt.savefig(img_tendencia.name, dpi=300, bbox_inches='tight')
                 plt.close(fig3)
@@ -502,13 +510,13 @@ elif st.session_state.vista == 'app':
                 ax4.set_xticks(ang[:-1])
                 ax4.set_xticklabels(cat, fontweight='bold', color='#002855', fontsize=9)
                 ax4.set_yticklabels([])
-                ax4.set_title("Análisis de Brecha de Ejecución", fontweight='bold', color='#002855', fontsize=11, pad=15)
+                ax4.set_title("Análisis de Brecha", fontweight='bold', color='#002855', fontsize=11, pad=15)
                 img_radar = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                 plt.savefig(img_radar.name, dpi=300, bbox_inches='tight')
                 plt.close(fig4)
 
                 # === GANTT TWI ===
-                height_in = max(3.0, num_ses_propuestas * 0.45) 
+                height_in = max(2.5, num_ses_propuestas * 0.45) 
                 fig_g, ax_g = plt.subplots(figsize=(7, height_in))
                 y_pos = np.arange(num_ses_propuestas)[::-1] 
                 
@@ -517,13 +525,13 @@ elif st.session_state.vista == 'app':
                 p_hrs = [d[2] for d in dist_sesiones]
                 
                 ax_g.barh(y_pos, t_hrs, color='#002855', label='Teoría (Preparar)', height=0.55, edgecolor='white')
-                ax_g.barh(y_pos, s_hrs, left=t_hrs, color='#4682B4', label='Colaborativo (Presentar)', height=0.55, edgecolor='white')
-                ax_g.barh(y_pos, p_hrs, left=np.array(t_hrs)+np.array(s_hrs), color='#E31837', label='Práctica (Intentar)', height=0.55, edgecolor='white')
+                ax_g.barh(y_pos, s_hrs, left=t_hrs, color='#8CB4E2', label='Colaborativo (Presentar)', height=0.55, edgecolor='white')
+                ax_g.barh(y_pos, p_hrs, left=np.array(t_hrs)+np.array(s_hrs), color='#FFB81C', label='Práctica (Intentar)', height=0.55, edgecolor='white')
                 
                 for i in range(num_ses_propuestas):
                     if t_hrs[i] > 0: ax_g.text(t_hrs[i]/2, y_pos[i], f"{t_hrs[i]}h", va='center', ha='center', color='white', fontweight='bold', fontsize=9)
                     if s_hrs[i] > 0: ax_g.text(t_hrs[i] + s_hrs[i]/2, y_pos[i], f"{s_hrs[i]}h", va='center', ha='center', color='white', fontweight='bold', fontsize=9)
-                    if p_hrs[i] > 0: ax_g.text(t_hrs[i] + s_hrs[i] + p_hrs[i]/2, y_pos[i], f"{p_hrs[i]}h", va='center', ha='center', color='white', fontweight='bold', fontsize=9)
+                    if p_hrs[i] > 0: ax_g.text(t_hrs[i] + s_hrs[i] + p_hrs[i]/2, y_pos[i], f"{p_hrs[i]}h", va='center', ha='center', color='#333333', fontweight='bold', fontsize=9)
                     ax_g.text(4.1, y_pos[i], f"➤ {pasos_cortos[i]}", va='center', ha='left', color='#333333', fontsize=9, fontstyle='italic')
 
                 ax_g.set_yticks(y_pos)
@@ -541,24 +549,59 @@ elif st.session_state.vista == 'app':
                 plt.savefig(img_gantt.name, dpi=300, bbox_inches='tight')
                 plt.close(fig_g)
 
+                # === GRÁFICA DE ANALÍTICA PREDICTIVA ===
+                fig_perf, ax_perf = plt.subplots(figsize=(8, 3.5)) 
+                x_perf = np.arange(3)
+                labels_x = ['Teoría Cognitiva', 'Resolución Social', 'Destreza en Piso']
+                
+                actual_vals = [pct_t, pct_s, pct_p]
+                expected_vals = [max(pct_t, 90), max(pct_s, 95), max(pct_p, 95)] 
+
+                ax_perf.fill_between(x_perf, actual_vals, color='#A0AAB5', alpha=0.3)
+                ax_perf.fill_between(x_perf, actual_vals, expected_vals, color='#28A745', alpha=0.3)
+                
+                ax_perf.plot(x_perf, actual_vals, marker='o', markersize=8, color='#A0AAB5', linewidth=3, label='Nivel Base Actual')
+                ax_perf.plot(x_perf, expected_vals, marker='s', markersize=8, color='#28A745', linewidth=3, label='Performance Proyectado (Post-Syllabus)')
+
+                ax_perf.set_title('Proyección de Retorno de Inversión Formativo (ROI)', fontweight='bold', color='#002855', fontsize=14, pad=20)
+                ax_perf.set_xticks(x_perf)
+                ax_perf.set_xticklabels(labels_x, fontweight='bold', color='#002855', fontsize=11)
+                ax_perf.set_ylim(0, 110)
+                ax_perf.grid(True, linestyle=':', alpha=0.6)
+                
+                ax_perf.legend(loc='lower center', bbox_to_anchor=(0.5, -0.25), ncol=2, frameon=False, fontsize=10)
+                
+                ax_perf.spines['top'].set_visible(False)
+                ax_perf.spines['right'].set_visible(False)
+
+                for i in range(3):
+                    ax_perf.annotate(f"{actual_vals[i]:.0f}%", (x_perf[i], actual_vals[i]-8), ha='center', fontsize=10, fontweight='bold', color='#555555')
+                    ax_perf.annotate(f"{expected_vals[i]:.0f}%", (x_perf[i], expected_vals[i]+4), ha='center', fontsize=10, fontweight='bold', color='#155724')
+
+                plt.tight_layout()
+                img_perf = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                plt.savefig(img_perf.name, dpi=300, bbox_inches='tight')
+                plt.close(fig_perf)
+
                 # === PDF REPORTLAB ===
                 pdf_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
                 doc = SimpleDocTemplate(pdf_temp.name, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=30, bottomMargin=30)
                 estilos = getSampleStyleSheet()
                 
                 estilo_tit = ParagraphStyle('Titulo', parent=estilos['Heading1'], textColor=colors.HexColor("#002855"), alignment=TA_LEFT, fontSize=18)
-                estilo_sub = ParagraphStyle('Sub', parent=estilos['Heading2'], textColor=colors.HexColor("#E31837"), fontSize=13)
-                estilo_mini_tit = ParagraphStyle('MiniTit', parent=estilos['Heading3'], textColor=colors.HexColor("#002855"), fontSize=11, fontName="Helvetica-Bold")
+                estilo_sub = ParagraphStyle('Sub', parent=estilos['Heading2'], textColor=colors.HexColor("#002855"), fontSize=13)
+                estilo_mini_tit = ParagraphStyle('MiniTit', parent=estilos['Heading3'], textColor=colors.HexColor("#002855"), fontSize=12, fontName="Helvetica-Bold")
                 estilo_txt = ParagraphStyle('Texto', parent=estilos['Normal'], fontSize=9.5, leading=13, alignment=TA_JUSTIFY)
                 estilo_pie = ParagraphStyle('Pie', parent=estilos['Normal'], fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#555555"))
                 estilo_blanco = ParagraphStyle('Blanco', parent=estilos['Normal'], textColor=colors.whitesmoke, fontName="Helvetica-Bold", alignment=TA_CENTER)
-                estilo_bullet = ParagraphStyle('Bullet', parent=estilos['Normal'], fontSize=9.5, leading=13, leftIndent=15)
-                
-                # Estilo especial para el glosario TWI
                 estilo_glosario = ParagraphStyle('Glosario', parent=estilos['Normal'], fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#555555"), fontName="Helvetica-Oblique")
+                
+                estilo_bullet_main = ParagraphStyle('BulletMain', parent=estilos['Normal'], fontSize=10, leading=14, spaceAfter=2)
+                estilo_subbullet = ParagraphStyle('SubBullet', parent=estilos['Normal'], fontSize=9, leading=12, spaceAfter=2)
                 
                 elementos = []
 
+                # PÁGINA 1 ========================================================
                 header_data = []
                 title_para = Paragraph("<b>REPORTE OFICIAL DE CERTIFICACIÓN TÉCNICA</b>", estilo_tit)
                 if os.path.exists("logo_aam.png"):
@@ -572,13 +615,13 @@ elif st.session_state.vista == 'app':
                 elementos.append(Spacer(1, 10))
                 
                 datos_cabecera = [
-                    [Paragraph(f"<b>Asociado Evaluado:</b> {nombre}"), Paragraph(f"<b>Fecha Cierre:</b> {fecha}")],
-                    [Paragraph(f"<b>Módulo AAM:</b> {modulo}"), Paragraph(f"<b>Instructor Titular:</b> {evaluador}")]
+                    [Paragraph(f"<b>Asociado Evaluado:</b> {nombre}"), Paragraph(f"<b>Fecha:</b> {fecha}")],
+                    [Paragraph(f"<b>Certificación AAM:</b> {modulo}"), Paragraph(f"<b>Instructor:</b> {evaluador}")]
                 ]
                 t = Table(datos_cabecera, colWidths=[260, 260])
                 t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8F9FA")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#A0AAB5")), ('PADDING', (0,0), (-1,-1), 6)]))
                 elementos.append(t)
-                elementos.append(Spacer(1, 12))
+                elementos.append(Spacer(1, 10))
 
                 elementos.append(Paragraph("<b>Registro de Evaluaciones Continuas</b>", estilo_sub))
                 datos_examenes = [
@@ -596,53 +639,95 @@ elif st.session_state.vista == 'app':
                     ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
                 ]))
                 elementos.append(t_exam)
-                elementos.append(Spacer(1, 12))
+                elementos.append(Spacer(1, 10))
 
-                img1 = RLImage(img_dona.name, width=150, height=150)
-                img2 = RLImage(img_barras.name, width=200, height=160)
-                img3 = RLImage(img_tendencia.name, width=200, height=160)
-                img4 = RLImage(img_radar.name, width=150, height=150)
+                img1 = RLImage(img_dona.name, width=130, height=130)
+                img2 = RLImage(img_barras.name, width=180, height=140)
+                img3 = RLImage(img_tendencia.name, width=180, height=140)
+                img4 = RLImage(img_radar.name, width=130, height=130)
 
                 dash_data = [
                     [img1, img2],
                     [Paragraph(txt_dona, estilo_pie), Paragraph(txt_barras, estilo_pie)],
-                    [Spacer(1, 10), Spacer(1, 10)], 
+                    [Spacer(1, 2), Spacer(1, 2)], 
                     [img3, img4],
                     [Paragraph(txt_curva, estilo_pie), Paragraph(txt_radar, estilo_pie)]
                 ]
                 t_dash = Table(dash_data, colWidths=[260, 260])
                 t_dash.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
                 elementos.append(t_dash)
+                
+                estilo_dictamen = ParagraphStyle('Dictamen', parent=estilos['Normal'], fontSize=11, alignment=TA_CENTER, spaceBefore=10, spaceAfter=5, backColor=colors.HexColor("#F8F9FA"), borderPadding=6, borderWidth=1, borderColor=colors.HexColor("#CCCCCC"))
+                elementos.append(Paragraph(dictamen_final, estilo_dictamen))
+                
+                # PÁGINA 2 ========================================================
+                elementos.append(PageBreak()) 
+                
+                elementos.append(Paragraph(f"<b>Evaluación Técnica:</b> {nombre} ({modulo})", estilo_pie))
                 elementos.append(Spacer(1, 15))
 
-                elementos.append(Paragraph("<b>DICTAMEN TÉCNICO Y PLAN DE RESCATE (Siguientes Pasos)</b>", estilo_sub))
+                elementos.append(Paragraph("<b>PLAN DE ASIGNACIÓN DE RECURSOS (TWI)</b>", estilo_sub))
                 elementos.append(Paragraph(bloom_txt, estilo_txt))
                 elementos.append(Spacer(1, 5))
                 elementos.append(Paragraph(modelo_txt, estilo_txt))
-                elementos.append(Spacer(1, 10))
-                
-                elementos.append(Paragraph("<b>Recomendaciones de Acción Preventiva:</b>", estilo_mini_tit))
-                lista_pasos = []
-                for p in pasos:
-                    lista_pasos.append(ListItem(Paragraph(p, estilo_bullet)))
-                elementos.append(ListFlowable(lista_pasos, bulletType='bullet', leftIndent=10))
-                elementos.append(Spacer(1, 10))
+                elementos.append(Spacer(1, 8))
                 
                 img_height_rl = 450 * (height_in / 7.0)
                 elementos.append(RLImage(img_gantt.name, width=450, height=img_height_rl))
                 
-                # GLOSARIO TWI AL FINAL DEL GANTT
-                texto_glosario = "*Glosario de Fases TWI: <b>Preparar:</b> Revisión teórica y comprensión de diagramas. <b>Presentar:</b> Observación activa y mentoría por parte del instructor. <b>Intentar:</b> Ejecución autónoma en piso por parte del asociado."
-                elementos.append(Spacer(1, 5))
+                texto_glosario = "*Glosario de Fases TWI: <b>Preparar:</b> Revisión teórica y lectura de diagramas. <b>Presentar:</b> Observación activa (Shadowing). <b>Intentar:</b> Ejecución autónoma en piso (Try-Out). <br/><br/><i>Nota de Compensación: La distribución de horas en este plan correctivo es intencionalmente asimétrica. Su propósito es inyectar recursos en las áreas deficientes para devolver al asociado al equilibrio del modelo 70-20-10.</i>"
+                elementos.append(Spacer(1, 3))
                 elementos.append(Paragraph(texto_glosario, estilo_glosario))
+                elementos.append(Spacer(1, 20))
+                
+                elementos.append(Paragraph("<b>Recomendaciones de Acción Preventiva:</b>", estilo_mini_tit))
+                lista_pasos = []
+                for p in pasos:
+                    lista_pasos.append(ListItem(Paragraph(p, estilo_bullet_main), bulletText="•"))
+                elementos.append(ListFlowable(lista_pasos, bulletType='bullet', leftIndent=10))
+
+                # PÁGINA 3 ========================================================
+                elementos.append(PageBreak()) 
+
+                elementos.append(Paragraph("<b>SYLLABUS AUTOMATIZADO (Basado en Brechas Operativas)</b>", estilo_sub))
+                texto_explicativo = "<i>Nota Metodológica: ¿Qué es el Syllabus Automatizado? En lugar de generar temarios genéricos, el algoritmo del sistema cruza en tiempo real las deficiencias específicas detectadas en la evaluación del asociado con el mapa curricular oficial de AAM, estructurando un plan de rescate académico jerarquizado y 100% a la medida.</i>"
+                elementos.append(Spacer(1, 5))
+                elementos.append(Paragraph(texto_explicativo, estilo_txt))
+                elementos.append(Spacer(1, 15))
+
+                lista_principal_syllabus = []
+                for bloque in temario_estructurado:
+                    sub_items = []
+                    if bloque["teoria"]:
+                        sub_items.append(ListItem(Paragraph(bloque["teoria"], estilo_subbullet), bulletText="•"))
+                    if bloque["practica"]:
+                        sub_items.append(ListItem(Paragraph(bloque["practica"], estilo_subbullet), bulletText="•"))
+                    
+                    sub_items.append(ListItem(Paragraph(bloque["actividad"], estilo_subbullet), bulletText="➤"))
+                    
+                    sub_list = ListFlowable(sub_items, bulletType='bullet', leftIndent=15, spaceAfter=10)
+                    item_principal = ListItem([Paragraph(bloque["sesion"], estilo_bullet_main), sub_list], bulletText="■")
+                    lista_principal_syllabus.append(item_principal)
+
+                elementos.append(ListFlowable(lista_principal_syllabus, bulletType='bullet', leftIndent=10))
+                
+                elementos.append(Spacer(1, 20))
+                
+                elementos.append(Paragraph("<b>ANALÍTICA PREDICTIVA DE COMPETENCIA (Nivel Esperado)</b>", estilo_sub))
+                texto_roi = "La siguiente gráfica proyecta el crecimiento formativo del asociado al concluir el Syllabus estructurado. El área verde representa la recuperación de competencia operativa proyectada tras ejecutar las sesiones TWI sugeridas."
+                elementos.append(Spacer(1, 5))
+                elementos.append(Paragraph(texto_roi, estilo_txt))
+                elementos.append(Spacer(1, 10))
+                
+                elementos.append(RLImage(img_perf.name, width=500, height=218))
 
                 doc.build(elementos)
 
             with open(pdf_temp.name, "rb") as pdf_file:
                 st.download_button(
-                    label="📥 DESCARGAR PLAN DE ACCIÓN GERENCIAL (PDF)",
+                    label="📥 DESCARGAR SYLLABUS Y PROYECCIÓN DE ROI (PDF)",
                     data=pdf_file,
-                    file_name=f"Reporte_AAM_{nombre.replace(' ', '_')}.pdf",
+                    file_name=f"Syllabus_AAM_{nombre.replace(' ', '_')}.pdf",
                     mime="application/pdf",
                     type="primary",
                     use_container_width=True,
