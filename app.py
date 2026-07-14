@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import re
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, Table, TableStyle, ListFlowable, ListItem, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import letter
@@ -42,7 +43,7 @@ def scroll_to_top():
         height=0
     )
 
-# --- 2. CSS BLINDADO (CERO ROJO, TODO CORPORATIVO) ---
+# --- 2. CSS BLINDADO ---
 st.markdown("""
     <style>
     .btn-comenzar > button { background-color: #002855 !important; color: #FFFFFF !important; font-size: 20px !important; padding: 15px !important; font-weight: bold; border-radius: 8px;}
@@ -58,10 +59,12 @@ st.markdown("""
     .perfil-caja { background-color: #FFFFFF !important; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #002855; display: flex; flex-direction: column; height: 100%;}
     .perfil-caja p, .perfil-caja b, .perfil-caja i { color: #333333 !important; }
     .perfil-caja h4 { margin-top: 0; margin-bottom: 15px; }
+    
+    .stFileUploader > div > div { background-color: #F8F9FA !important; border: 2px dashed #002855 !important; border-radius: 8px;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BASE DE DATOS DE CURSOS AAM (CON INTEGRACIÓN SIEMENS) ---
+# --- 3. BASE DE DATOS DE CURSOS AAM ---
 CURSOS = {
     "PLC AB + Cognex": {
         "TEORIA (Cognitivo)": [
@@ -89,8 +92,8 @@ CURSOS = {
             "Menciona equipo de protección (EPP), sistema CAE y principios básicos de redes Ethernet/IP.",
             "Identifica diagramas eléctricos y el proceso correcto de asignación de direcciones IP para módulos de visión.",
             "Explica teóricamente el procedimiento de instalación de archivos EDS en el software.",
-            "Comprende la estructura de 'Controller tags' y componentes lógicos para la comunicación PLC-Cámara.",
-            "Conoce la configuración de hardware requerida en el software IV Navigator de Keyence."
+            "Comprende la structure de 'Controller tags' y componentes lógicos para la comunicación PLC-Cámara.",
+            "Conoce la configuration de hardware requerida en el software IV Navigator de Keyence."
         ],
         "SOCIAL (Colaborativo)": [
             "Documenta correctamente en la orden de trabajo los cambios de IP, cableado o reemplazos de hardware.",
@@ -154,46 +157,262 @@ def calcular_pct_normalizado(valores):
     puntuaciones = [(v - 1) * 50 for v in valores]
     return sum(puntuaciones) / len(puntuaciones)
 
-# --- 4. MOTOR LÓGICO INTELIGENTE ---
-def generar_temario(calificaciones, modulo, dist_sesiones):
+# --- 4. MOTOR LECTOR DE EXCEL INTELIGENTE (NLP A PRUEBA DE BALAS) ---
+@st.cache_data
+def procesar_excel_aam(file):
+    try:
+        df = pd.read_excel(file, sheet_name=0)
+        df.fillna("", inplace=True)
+        
+        nombre_curso = "Certificación Dinámica AAM"
+        for r in range(len(df)):
+            for c in range(len(df.columns)):
+                if "NOMBRE DEL CURSO" in str(df.iloc[r, c]).upper():
+                    try:
+                        nombre_raw = str(df.iloc[r+1, c]).strip()
+                        if not nombre_raw or nombre_raw.lower() == 'nan':
+                            nombre_raw = str(df.iloc[r, c+1]).strip()
+                        if nombre_raw and nombre_raw.lower() != 'nan':
+                            nombre_curso = nombre_raw
+                    except: pass
+                    break
+
+        competencias = []
+        for r in range(len(df)):
+            for c in range(len(df.columns)):
+                val = str(df.iloc[r, c]).strip().upper()
+                if "COMPETENCIAS A DESARROLLAR" in val:
+                    for nc in range(c+1, len(df.columns)):
+                        comp_str = str(df.iloc[r, nc]).strip()
+                        if comp_str and comp_str.lower() != 'nan':
+                            if '\n' in comp_str:
+                                competencias = [x.strip() for x in comp_str.split('\n') if len(x.strip()) > 3]
+                            else:
+                                competencias = [x.strip() for x in re.split(r'[,;]', comp_str) if len(x.strip()) > 3]
+                            break
+
+        temas_raw = []
+        subtemas_raw = []
+        found_tema = False
+        
+        # Aspiradora de basura administrativa
+        skip_words = ["APERTURA", "CIERRE", "INTRODUCCI", "BIENVENIDA", "ENCUADRE", "REGISTRO", "SONDEO", "EXPECTATIVAS", "EVALUACI", "CLAUSURA", "DINÁMICA"]
+        
+        for r in range(len(df)):
+            if found_tema: break
+            for c in range(len(df.columns)):
+                if str(df.iloc[r, c]).strip().upper() == "TEMA":
+                    for row_i in range(r+1, len(df)):
+                        t_val = str(df.iloc[row_i, c]).strip()
+                        
+                        if "ELABOR" in t_val.upper() or "BIBLIOGRAF" in t_val.upper() or "AUTOR" in t_val.upper() or "INSTRUCTOR" in t_val.upper():
+                            found_tema = True
+                            break
+                            
+                        if t_val and t_val.lower() != "nan":
+                            upper_t = t_val.upper()
+                            if not any(sw in upper_t for sw in skip_words):
+                                t_clean = re.sub(r'^(Tema\s*\d+[\.\-]?\s*|Unidad\s*\d+[\.\-]?\s*|\d+[\.\-]?\s*)', '', t_val, flags=re.IGNORECASE).strip()
+                                temas_raw.append(t_clean)
+                                
+                                if c+1 < len(df.columns):
+                                    st_val = str(df.iloc[row_i, c+1]).strip()
+                                    if st_val and st_val.lower() != "nan":
+                                        sub_list = [x.strip() for x in st_val.split('\n') if len(x.strip()) > 3]
+                                        for st in sub_list:
+                                            if not any(sw in st.upper() for sw in skip_words):
+                                                st_clean = re.sub(r'^(\d+[\.\-]?\s*)', '', st).strip()
+                                                subtemas_raw.append(st_clean)
+                    found_tema = True
+                    break
+        
+        if not temas_raw:
+            temas_raw = ["Fundamentos Técnicos", "Configuración de Hardware y Software", "Troubleshooting Operativo"]
+
+        teoria = []
+        practica = []
+        social = []
+        
+        verbos_teoria = ['conoce', 'comprende', 'identifica', 'analiza', 'entiende', 'evalúa', 'describe', 'interpreta', 'lee']
+        verbos_practica = ['configura', 'programa', 'realiza', 'ejecuta', 'interviene', 'implementa', 'conecta', 'arma', 'diagnostica', 'puesta', 'soluciona', 'calibra']
+
+        def limpiar_pedagogia(txt):
+            for word in ["Introducción a la ", "Introducción a los ", "Introducción al ", "Introducción a ", "Conceptos de ", "Principios de ", "Tema ", "Unidad "]:
+                txt = re.sub(f"(?i)^{word}", "", txt)
+            return txt.strip()
+            
+        def procesar_verbo(txt, categoria):
+            txt = limpiar_pedagogia(txt)
+            txt = re.sub(r'^(\d+[\.\-]?\s*)', '', txt).strip()
+            if not txt or len(txt) < 4: return None
+            
+            words = txt.split()
+            first_word = words[0]
+            
+            # Corrector Ortográfico para "Gritones"
+            if txt.isupper():
+                txt_adj = txt.lower()
+                txt_cap = txt.capitalize()
+            else:
+                if first_word.isupper() and len(first_word) > 1:
+                    txt_adj = txt
+                    txt_cap = txt
+                else:
+                    txt_adj = txt[0].lower() + txt[1:]
+                    txt_cap = txt[0].upper() + txt[1:]
+            
+            idx = len(txt)
+            first_word_lower = first_word.lower()
+            
+            if categoria == 'TEORIA':
+                if first_word_lower in verbos_teoria:
+                    sufijos = [" aplicando un enfoque de análisis sistémico.", " con alto rigor técnico.", " para prevenir fallos operativos en la línea."]
+                    return f"{txt_cap}{sufijos[idx % len(sufijos)]}"
+                else:
+                    plantillas = [
+                        f"Demuestra dominio teórico y analítico avanzado sobre {txt_adj}.",
+                        f"Fundamenta los principios de ingeniería necesarios para {txt_adj}.",
+                        f"Comprende a detalle la lógica técnica implicada en {txt_adj}."
+                    ]
+                    return plantillas[idx % len(plantillas)]
+                    
+            elif categoria == 'PRACTICA':
+                if first_word_lower in verbos_practica:
+                    sufijos = [" de forma 100% autónoma en equipo energizado.", " aplicando estándares de la industria automotriz.", " asegurando los tiempos de ciclo en línea."]
+                    return f"{txt_cap}{sufijos[idx % len(sufijos)]}"
+                else:
+                    plantillas = [
+                        f"Realiza maniobras y procedimientos de {txt_adj} bajo estrés operativo.",
+                        f"Lleva a cabo la configuración y validación para {txt_adj} en piso.",
+                        f"Aplica técnicas de troubleshooting avanzado asociadas a {txt_adj}."
+                    ]
+                    return plantillas[idx % len(plantillas)]
+                    
+            elif categoria == 'SOCIAL':
+                plantillas = [
+                    f"Asegura la trazabilidad en bitácora tras realizar intervenciones relativas a {txt_adj}.",
+                    f"Comunica parámetros modificados y hallazgos al equipo de turno respecto a {txt_adj}.",
+                    f"Documenta técnicamente las incidencias operativas derivadas de {txt_adj}."
+                ]
+                return plantillas[idx % len(plantillas)]
+
+        for c in competencias:
+            if any(verb in c.lower() for verb in verbos_teoria):
+                val = procesar_verbo(c, 'TEORIA')
+                if val: teoria.append(val)
+            else:
+                val = procesar_verbo(c, 'PRACTICA')
+                if val: practica.append(val)
+                
+        for st_raw in subtemas_raw:
+            if len(teoria) < 5:
+                val = procesar_verbo(st_raw, 'TEORIA')
+                if val and val not in teoria: teoria.append(val)
+            elif len(practica) < 5:
+                val = procesar_verbo(st_raw, 'PRACTICA')
+                if val and val not in practica: practica.append(val)
+
+        mezcla = temas_raw + competencias
+        for m in mezcla:
+            if len(social) < 3:
+                val = procesar_verbo(m, 'SOCIAL')
+                if val and val not in social: social.append(val)
+                
+        if len(teoria) == 0: teoria.append("Interpreta esquemáticos del fabricante y manuales corporativos (AAM) con precisión.")
+        if len(practica) == 0: practica.append("Ejecuta tareas operativas de diagnóstico en piso bajo demanda de producción.")
+        if len(social) == 0: social.append("Mantiene un registro de control de cambios riguroso en los sistemas de la planta.")
+
+        def dedup(seq):
+            seen = set()
+            return [x for x in seq if not (x in seen or seen.add(x))]
+
+        return {
+            "nombre": nombre_curso,
+            "rubrica": {
+                "TEORIA (Cognitivo)": dedup(teoria)[:6],
+                "SOCIAL (Colaborativo)": dedup(social)[:3],
+                "PRACTICA (Experiencial)": dedup(practica)[:6]
+            }
+        }
+    except Exception as e:
+        return None
+
+# --- 5. LÓGICA DE SYLLABUS Y TEXTOS DINÁMICOS CON IA ---
+def generar_temario(calificaciones, curso_dict, dist_sesiones):
     temas_teoria = []
     temas_practica = []
     
-    for i, score in enumerate(calificaciones["TEORIA (Cognitivo)"]):
-        if score <= 2: temas_teoria.append(CURSOS[modulo]["TEORIA (Cognitivo)"][i])
-    for i, score in enumerate(calificaciones["PRACTICA (Experiencial)"]):
-        if score <= 2: temas_practica.append(CURSOS[modulo]["PRACTICA (Experiencial)"][i])
+    # FUNCION DE INGENIERÍA INVERSA
+    def extraer_nucleo(txt):
+        txt = re.sub(r'[^\w\s\.\:\,\(\)\-áéíóúÁÉÍÓÚñÑüÜ]', '', txt).strip()
+        sufijos = [r" aplicando un enfoque de análisis sistémico.*", r" con alto rigor técnico.*", r" para prevenir fallos operativos en la línea.*", r" de forma 100% autónoma en equipo energizado.*", r" aplicando estándares de la industria automotriz.*", r" asegurando los tiempos de ciclo en línea.*", r" bajo estrés operativo.*", r" en piso.*"]
+        for s in sufijos: txt = re.sub(s, "", txt, flags=re.IGNORECASE)
+        prefijos = [r"^Demuestra dominio teórico y analítico avanzado sobre ", r"^Fundamenta los principios de ingeniería necesarios para ", r"^Comprende a detalle la lógica técnica implicada en ", r"^Realiza maniobras y procedimientos de ", r"^Lleva a cabo la configuración y validación para ", r"^Aplica técnicas de troubleshooting avanzado asociadas a "]
+        for p in prefijos: txt = re.sub(p, "", txt, flags=re.IGNORECASE)
         
-    if not temas_teoria: temas_teoria.append("Revisión de arquitecturas de red avanzadas y optimización de tiempos de escaneo.")
-    if not temas_practica: temas_practica.append("Simulación de fallas críticas en hardware vivo y recuperación de desastres (Disaster Recovery).")
+        if txt: return txt[0].upper() + txt[1:]
+        return txt
+
+    for i, score in enumerate(calificaciones["TEORIA (Cognitivo)"]):
+        if score <= 2: temas_teoria.append(extraer_nucleo(curso_dict["TEORIA (Cognitivo)"][i]))
+    for i, score in enumerate(calificaciones["PRACTICA (Experiencial)"]):
+        if score <= 2: temas_practica.append(extraer_nucleo(curso_dict["PRACTICA (Experiencial)"][i]))
+        
+    if not temas_teoria: temas_teoria.append("Optimización de tiempos de escaneo y revisión de protocolos")
+    if not temas_practica: temas_practica.append("Recuperación de desastres y simulación de fallas críticas")
     
+    twi_preparar = [
+        "Análisis en escritorio, validación de diagramas e identificación de componentes críticos.",
+        "Estudio de manuales del fabricante y mapeo de secuencias lógicas de operación.",
+        "Auditoría de parámetros, revisión de históricos de falla y planeación de la intervención."
+    ]
+    twi_mixto = [
+        "Observación activa (Shadowing) seguida de intervención en hardware bajo supervisión estricta.",
+        "Demostración técnica del instructor, transicionando a práctica guiada paso a paso (Try-Out).",
+        "Simulación controlada de fallas: el asociado identifica y el instructor asiste en la corrección."
+    ]
+    twi_intentar = [
+        "Ejecución 100% autónoma en celda viva, auditando tiempos de respuesta y precisión diagnóstica.",
+        "Troubleshooting bajo estrés operativo: aislamiento y corrección de anomalías sin asistencia.",
+        "Liberación técnica: Validación de destreza mecánica y toma de decisiones en tiempo real."
+    ]
+    
+    head_teoria = ["Refuerzo cognitivo orientado a: ", "Clínica analítica enfocada en: ", "Revisión arquitectónica de: "]
+    head_practica = ["Clínica operativa y calibración de: ", "Intervención táctil y troubleshooting de: ", "Maniobras de alta precisión en: "]
+
     temario_estructurado = []
     for s, horas in enumerate(dist_sesiones):
         t_hrs, s_hrs, p_hrs = horas
-        t_topic = temas_teoria[s % len(temas_teoria)]
-        p_topic = temas_practica[s % len(temas_practica)]
+        core_t = temas_teoria[s % len(temas_teoria)].rstrip('.')
+        core_p = temas_practica[s % len(temas_practica)].rstrip('.')
+        
+        h_t = head_teoria[s % len(head_teoria)] + core_t
+        h_p = head_practica[s % len(head_practica)] + core_p
         
         bloque = {"sesion": "", "teoria": None, "practica": None, "actividad": ""}
         
         if p_hrs == 0:
             bloque["sesion"] = f"<b>Sesión {s+1} [Teoría {t_hrs}h]</b>"
-            bloque["teoria"] = f"<b>Foco Teórico:</b> {t_topic}"
-            bloque["actividad"] = "<font color='#555555'><i>Actividad TWI (Preparar): Análisis en escritorio, lectura de manuales y mapeo de IPs.</i></font>"
+            bloque["teoria"] = f"<b>Foco Teórico:</b> {h_t}."
+            act = twi_preparar[s % len(twi_preparar)]
+            bloque["actividad"] = f"<font color='#555555'><i>Actividad TWI (Preparar): {act}</i></font>"
         elif t_hrs == 0:
             bloque["sesion"] = f"<b>Sesión {s+1} [Práctica {p_hrs}h]</b>"
-            bloque["practica"] = f"<b>Foco Práctico:</b> {p_topic}"
-            bloque["actividad"] = "<font color='#D49A00'><i>Actividad TWI (Intentar): Ejecución 100% autónoma en celda viva, validando tiempos de respuesta bajo estrés.</i></font>"
+            bloque["practica"] = f"<b>Foco Práctico:</b> {h_p}."
+            act = twi_intentar[s % len(twi_intentar)]
+            bloque["actividad"] = f"<font color='#D49A00'><i>Actividad TWI (Intentar): {act}</i></font>"
         else:
             bloque["sesion"] = f"<b>Sesión {s+1} [Teoría {t_hrs}h | Práctica {p_hrs}h]</b>"
-            bloque["teoria"] = f"<b>Foco Teórico:</b> {t_topic}"
-            bloque["practica"] = f"<b>Foco Práctico:</b> {p_topic}"
-            bloque["actividad"] = "<font color='#4682B4'><i>Actividad TWI (Presentar/Intentar): Observación guiada progresando a conexión y programación en vivo.</i></font>"
+            bloque["teoria"] = f"<b>Foco Teórico:</b> {h_t}."
+            bloque["practica"] = f"<b>Foco Práctico:</b> {h_p}."
+            act = twi_mixto[s % len(twi_mixto)]
+            bloque["actividad"] = f"<font color='#4682B4'><i>Actividad TWI (Presentar/Intentar): {act}</i></font>"
             
         temario_estructurado.append(bloque)
             
     return temario_estructurado
 
-def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modulo, calificaciones_raw):
+def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, titulo_curso, calificaciones_raw, curso_dict):
     calif_absoluta = ( (pt*0.1 + ps*0.2 + pp*0.7) + (d_score*0.1 + f_score*0.3 + s_score*0.6) ) / 2
     
     if calif_absoluta >= 80 and pp >= 80 and pt >= 80: perfil = 1 
@@ -202,8 +421,8 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modu
     elif calif_absoluta >= 60 and pp >= 60: perfil = 5 
     else: perfil = 4 
         
-    software_plc = "TIA Portal" if "S7" in modulo else "Studio 5000"
-    software_cam = "Cognex" if "Cognex" in modulo else "Keyence"
+    software_plc = "TIA Portal" if "S7" in titulo_curso or "SIEMENS" in titulo_curso.upper() else ("Studio 5000" if "AB" in titulo_curso or "ALLEN" in titulo_curso.upper() else "el equipo")
+    software_cam = "Cognex" if "COGNEX" in titulo_curso.upper() else ("Keyence" if "KEYENCE" in titulo_curso.upper() else "el sistema")
 
     if calif_absoluta >= 90:
         txt_dona = f"<b>Nivel Kirkpatrick:</b> {calif_absoluta:.1f}%. Este círculo lleno consolida el Nivel 3. La capacitación se ha traducido en una conducta operativa autónoma."
@@ -219,7 +438,7 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modu
     elif perfil == 2:
         txt_barras = f"<b>Metodología 70-20-10:</b> Fricción psicomotriz. Mantiene un alto {pt:.1f}% en Teoría, pero frente a la máquina real, la barra de ejecución se desploma a {pp:.1f}%."
     elif perfil == 3:
-        txt_barras = f"<b>Metodología 70-20-10:</b> Inercia mecánica. Práctica alta ({pp:.1f}%), pero el {pt:.1f}% teórico indica que el asociado no domina la lógica de las conexiones."
+        txt_barras = f"<b>Metodología 70-20-10:</b> Inercia mecánica. Práctica alta ({pp:.1f}%), pero el {pt:.1f}% teórico indica que el asociado no domina la lógica de los procesos."
     else:
         txt_barras = f"<b>Metodología 70-20-10:</b> Barras deprimidas de forma transversal (Teoría: {pt:.1f}%, Práctica: {pp:.1f}%). Evidencia la necesidad de reiniciar el módulo instruccional."
 
@@ -236,7 +455,7 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modu
     elif abs(pt - pp) <= 10 and pt >= 80: txt_radar = f"<b>Huella de Brecha:</b> Equilibrio de alto rendimiento. Perfil simétrico ideal y competente."
     elif abs(pt - pp) <= 10 and pt < 80: txt_radar = f"<b>Huella de Brecha:</b> Simétrico, pero requiere desarrollo equitativo en todas las áreas evaluadas."
     elif pt > pp: txt_radar = f"<b>Huella de Brecha:</b> Asimetría operativa. Fuerte sesgo hacia la abstracción lógica, baja destreza manual en equipo."
-    else: txt_radar = f"<b>Huella de Brecha:</b> Asimetría cognitiva. Fuerte sesgo mecánico, vulnerable en deducción de lógica de red."
+    else: txt_radar = f"<b>Huella de Brecha:</b> Asimetría cognitiva. Fuerte sesgo mecánico, vulnerable en deducción de lógicas."
 
     if perfil == 1:
         bloom_txt = f"<b>Evaluación:</b> Capaz de deducir lógicas y diagnosticar fallas en <b>{software_plc}</b> y <b>{software_cam}</b> sin rutinas pre-memorizadas."
@@ -246,18 +465,18 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modu
         pasos = ["Validar su independencia asignándole órdenes preventivas de alta complejidad.", "Asignarle el rol de asociado guía ('Presentar') para apoyar a compañeros con menor desempeño."]
         dictamen_final = "<font color='#28A745'><b>DICTAMEN: APROBADO.</b> El asociado cumple y excede los estándares operativos de AAM.</font>"
     elif perfil == 2:
-        bloom_txt = f"<b>Evaluación:</b> Domina la lectura de planos. Área de oportunidad en la transición táctil hacia la conexión de hardware."
+        bloom_txt = f"<b>Evaluación:</b> Domina la lectura de manuales. Área de oportunidad en la transición táctil hacia la conexión física."
         modelo_txt = "<b>Justificación del Cronograma:</b> Para corregir el sesgo y acercarlo al balance 70-20-10, el plan invierte la carga forzando 4 sesiones con mayoría de práctica en celda (Try-Out)."
         dist_sesiones = [(1.0, 2.0, 1.0), (0.5, 1.5, 2.0), (0.0, 1.0, 3.0), (0.0, 0.0, 4.0)]
         pasos_cortos = ["Observación", "Práctica Asistida", "Práctica Media", "Ejecución Libre"]
-        pasos = [f"Frenar el uso de manuales. Priorizar rutinas repetitivas de conexión de tarjetas I/O en {software_plc}.", "Implementar sesiones de observación activa donde el instructor solo intervenga en caso de riesgo."]
+        pasos = [f"Frenar el uso de manuales. Priorizar rutinas repetitivas de conexión y configuración en {software_plc}.", "Implementar sesiones de observación activa donde el instructor solo intervenga en caso de riesgo."]
         dictamen_final = "<font color='#D49A00'><b>DICTAMEN: CONDICIONADO.</b> Certificación sujeta al cumplimiento estricto del Plan de Acción y Syllabus operativo.</font>"
     elif perfil == 3:
-        bloom_txt = f"<b>Evaluación:</b> Ejecución operativa frágil. Carece de la base analítica para rastrear fallas atípicas de red."
+        bloom_txt = f"<b>Evaluación:</b> Ejecución operativa frágil. Carece de la base analítica para rastrear fallas atípicas."
         modelo_txt = "<b>Justificación del Cronograma:</b> Para restituir el balance 70-20-10, este plan correctivo frena temporalmente la práctica y compensa inyectando las horas de teoría faltantes."
         dist_sesiones = [(3.0, 1.0, 0.0), (2.0, 1.0, 1.0), (0.5, 1.0, 2.5)]
         pasos_cortos = ["Revisión Teórica", "Balance en Piso", "Validación Técnica"]
-        pasos = ["Impedir intervenciones correctivas sin supervisión hasta que valide la lectura fluida de esquemáticos.", f"Obligar al asociado a explicar verbalmente el flujo lógico de la señal en {software_plc} antes de puentear señales."]
+        pasos = ["Impedir intervenciones correctivas sin supervisión hasta que valide la lectura fluida del proceso.", f"Obligar al asociado a explicar verbalmente el flujo lógico en {software_plc} antes de intervenir el equipo."]
         dictamen_final = "<font color='#D49A00'><b>DICTAMEN: CONDICIONADO.</b> Certificación sujeta a la asimilación teórica dictada en el Syllabus y Plan de Acción.</font>"
     elif perfil == 5:
         bloom_txt = f"<b>Evaluación:</b> Desempeño medio. Resuelve problemas básicos pero requiere refuerzo para solidificar tiempos de respuesta."
@@ -267,11 +486,11 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modu
         pasos = ["Continuar asignándole mantenimientos preventivos regulares para que gane velocidad.", "Agendar una breve validación diagnóstica en un mes para asegurar retención."]
         dictamen_final = "<font color='#4682B4'><b>DICTAMEN: EN TRANSICIÓN.</b> Se requiere validar tiempos de respuesta tras concluir las sesiones de refuerzo.</font>"
     else: 
-        bloom_txt = f"<b>Evaluación:</b> Riesgo Crítico. Incapaz de leer diagramas o de diagnosticar fallas básicas en <b>{software_plc}</b>."
+        bloom_txt = f"<b>Evaluación:</b> Riesgo Crítico. Incapaz de comprender flujos o diagnosticar fallas básicas en <b>{software_plc}</b>."
         if calif_absoluta <= 20: 
             modelo_txt = "<b>Justificación del Cronograma:</b> Brecha profunda. Se formula un plan de rescate de 6 Sesiones iniciando desde el escritorio para reconstruir las bases del modelo formativo."
             dist_sesiones = [(3.5, 0.5, 0.0), (3.0, 1.0, 0.0), (2.0, 1.5, 0.5), (1.0, 2.0, 1.0), (0.5, 1.0, 2.5), (0.0, 1.0, 3.0)]
-            pasos_cortos = ["Fundamentos", "Lectura Planos", "Observación", "Práctica Controlada", "Práctica Media", "Examen Final"]
+            pasos_cortos = ["Fundamentos", "Lectura de Bases", "Observación", "Práctica Controlada", "Práctica Media", "Examen Final"]
         elif calif_absoluta <= 45:
             modelo_txt = "<b>Justificación del Cronograma:</b> Deficiencia grave. Se estructura un Plan de 5 Sesiones enfocando la primera mitad en nivelación teórica, para luego saltar a la práctica."
             dist_sesiones = [(3.0, 1.0, 0.0), (2.0, 1.5, 0.5), (1.0, 2.0, 1.0), (0.5, 1.5, 2.0), (0.0, 1.0, 3.0)]
@@ -280,10 +499,10 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, modu
             modelo_txt = "<b>Justificación del Cronograma:</b> Incompetencia superable. Se dictamina un Plan de 4 Sesiones dosificando las horas de forma guiada para recuperar la confianza del asociado."
             dist_sesiones = [(2.0, 1.5, 0.5), (1.0, 2.0, 1.0), (0.5, 1.5, 2.0), (0.0, 1.0, 3.0)]
             pasos_cortos = ["Nivelación Aula", "Observación", "Ejecución Guiada", "Liberación Piso"]
-        pasos = ["Pausar autorización para manipular celdas vivas temporalmente.", "Regresar a las bases de aula: instrucción intensiva sobre el funcionamiento de multímetros y direccionamiento IP."]
+        pasos = ["Pausar autorización para manipular celdas vivas temporalmente.", "Regresar a las bases de aula: instrucción intensiva sobre el funcionamiento básico."]
         dictamen_final = "<font color='#343A40'><b>DICTAMEN: SUSPENDIDO.</b> Riesgo operativo crítico. Requiere re-certificación obligatoria y nula intervención autónoma en piso.</font>"
 
-    temario_estructurado = generar_temario(calificaciones_raw, modulo, dist_sesiones)
+    temario_estructurado = generar_temario(calificaciones_raw, curso_dict, dist_sesiones)
 
     return txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, temario_estructurado, pasos_cortos, dist_sesiones, dictamen_final
 
@@ -400,12 +619,59 @@ elif st.session_state.vista == 'app':
     st.markdown("<h2 style='text-align: center; margin-top: -10px;'>Motor de Micro-Evaluación Técnica</h2>", unsafe_allow_html=True)
     st.markdown("---")
 
-    col_d1, col_d2, col_d3, col_d4 = st.columns([2.5, 2, 1.5, 3.0])
+    st.subheader("⚙️ Configuración del Módulo a Evaluar")
+    modo_carga = st.radio("Modo de Selección de Temario:", ["Usar Catálogo Precargado (Fase 1)", "Cargar Temario desde Excel (Fase 2 - Automático)"], horizontal=True)
+    
+    curso_actual = None
+    titulo_modulo_pdf = ""
+
+    if modo_carga == "Usar Catálogo Precargado (Fase 1)":
+        modulo_sel = st.selectbox("Certificación AAM a evaluar:", list(CURSOS.keys()))
+        curso_actual = CURSOS[modulo_sel]
+        titulo_modulo_pdf = modulo_sel
+    else:
+        col_up1, col_up2 = st.columns([1, 1.2])
+        
+        with col_up2:
+            st.markdown("**📊 Formato Requerido (Plantilla FDTA004):**")
+            if os.path.exists("template_fdta004.png"):
+                st.image("template_fdta004.png", use_container_width=True)
+            elif os.path.exists("template_fdta004.jpg"):
+                st.image("template_fdta004.jpg", use_container_width=True)
+            else:
+                st.warning("⚠️ Falta la imagen guía. Guarda un pantallazo de tu Excel como 'template_fdta004.png' en esta misma carpeta para que aparezca aquí.")
+                
+        with col_up1:
+            st.info("Arrastra la plantilla estándar de contenido temático (FDTA004) de AAM University.")
+            
+            # --- CANDADO ANTI-USUARIOS Y UX (V56) ---
+            archivo_excel = st.file_uploader(
+                "Subir Archivo Excel", 
+                type=["xlsx"], 
+                label_visibility="collapsed",
+                accept_multiple_files=False, 
+                help="Sube un archivo a la vez. Si subes otro, reemplazará al anterior."
+            )
+            
+            if archivo_excel:
+                datos_dinamicos = procesar_excel_aam(archivo_excel)
+                if datos_dinamicos:
+                    st.success(f"✅ ¡Temario escaneado exitosamente: **{datos_dinamicos['nombre']}**!")
+                    curso_actual = datos_dinamicos["rubrica"]
+                    titulo_modulo_pdf = datos_dinamicos["nombre"]
+                else:
+                    st.error("No se pudo procesar el formato. Asegúrate de usar la plantilla oficial con 'NOMBRE DEL CURSO' y columna 'TEMA'.")
+                    st.stop()
+            else:
+                st.stop()
+
+    st.markdown("---")
+    
+    col_d1, col_d2, col_d3 = st.columns([2.5, 2, 1.5])
     nombre = col_d1.text_input("Asociado Evaluado:")
     evaluador = col_d2.text_input("Instructor Responsable:")
     fecha = col_d3.date_input("Fecha de Cierre:")
-    modulo = col_d4.selectbox("Certificación AAM a evaluar:", list(CURSOS.keys()))
-
+    
     st.markdown("---")
 
     st.subheader("1. Progreso Académico (Exámenes)")
@@ -429,7 +695,7 @@ elif st.session_state.vista == 'app':
 
     calificaciones = {"TEORIA (Cognitivo)": [], "SOCIAL (Colaborativo)": [], "PRACTICA (Experiencial)": []}
 
-    for bloque, criterios in CURSOS[modulo].items():
+    for bloque, criterios in curso_actual.items():
         st.markdown(f"#### {bloque}")
         st.markdown("<hr style='margin: 5px 0; border: 1px solid #CCC;'>", unsafe_allow_html=True)
         
@@ -455,7 +721,7 @@ elif st.session_state.vista == 'app':
                 pct_s = calcular_pct_normalizado(calificaciones["SOCIAL (Colaborativo)"])
                 pct_p = calcular_pct_normalizado(calificaciones["PRACTICA (Experiencial)"])
                 
-                txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, temario_estructurado, pasos_cortos, dist_sesiones, dictamen_final = generar_textos_dinamicos(pct_t, pct_s, pct_p, diag_score, form_score, sum_score, nombre, modulo, calificaciones)
+                txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, temario_estructurado, pasos_cortos, dist_sesiones, dictamen_final = generar_textos_dinamicos(pct_t, pct_s, pct_p, diag_score, form_score, sum_score, nombre, titulo_modulo_pdf, calificaciones, curso_actual)
                 num_ses_propuestas = len(dist_sesiones)
                 
                 calif_final_matriz = (pct_t * 0.10) + (pct_s * 0.20) + (pct_p * 0.70)
@@ -616,7 +882,7 @@ elif st.session_state.vista == 'app':
                 
                 datos_cabecera = [
                     [Paragraph(f"<b>Asociado Evaluado:</b> {nombre}"), Paragraph(f"<b>Fecha:</b> {fecha}")],
-                    [Paragraph(f"<b>Certificación AAM:</b> {modulo}"), Paragraph(f"<b>Instructor:</b> {evaluador}")]
+                    [Paragraph(f"<b>Certificación AAM:</b> {titulo_modulo_pdf}"), Paragraph(f"<b>Instructor:</b> {evaluador}")]
                 ]
                 t = Table(datos_cabecera, colWidths=[260, 260])
                 t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8F9FA")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#A0AAB5")), ('PADDING', (0,0), (-1,-1), 6)]))
@@ -663,7 +929,7 @@ elif st.session_state.vista == 'app':
                 # PÁGINA 2 ========================================================
                 elementos.append(PageBreak()) 
                 
-                elementos.append(Paragraph(f"<b>Evaluación Técnica:</b> {nombre} ({modulo})", estilo_pie))
+                elementos.append(Paragraph(f"<b>Evaluación Técnica:</b> {nombre} ({titulo_modulo_pdf})", estilo_pie))
                 elementos.append(Spacer(1, 15))
 
                 elementos.append(Paragraph("<b>PLAN DE ASIGNACIÓN DE RECURSOS (TWI)</b>", estilo_sub))
