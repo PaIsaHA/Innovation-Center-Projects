@@ -14,6 +14,7 @@ import plotly.express as px
 import time
 import streamlit.components.v1 as components
 
+
 # --- 1. CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(page_title="AAM SkillMatrix Pro", layout="wide")
 
