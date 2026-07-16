@@ -4,7 +4,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import re
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, Table, TableStyle, ListFlowable, ListItem, PageBreak
+import traceback
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, Table, TableStyle, ListFlowable, ListItem, PageBreak, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -167,6 +168,12 @@ def procesar_excel_aam(file):
         df = pd.read_excel(file, sheet_name=0)
         df.fillna("", inplace=True)
         
+        # --- DEBUG CHISMOSO ---
+        print("\n--- DEBUG EXCEL ---")
+        print("Columnas:", df.columns.tolist())
+        print("Primeras 3 filas:\n", df.head(3))
+        print("-------------------\n")
+        
         nombre_curso = "Certificación Dinámica AAM"
         for r in range(len(df)):
             for c in range(len(df.columns)):
@@ -221,9 +228,9 @@ def procesar_excel_aam(file):
                                     st_val = str(df.iloc[row_i, c+1]).strip()
                                     if st_val and st_val.lower() != "nan":
                                         sub_list = [x.strip() for x in st_val.split('\n') if len(x.strip()) > 3]
-                                        for st in sub_list:
-                                            if not any(sw in st.upper() for sw in skip_words):
-                                                st_clean = re.sub(r'^(\d+[\.\-]?\s*)', '', st).strip()
+                                        for sub_tema in sub_list: # AQUÍ ESTABA EL BUG QUE ROMPÍA STREAMLIT
+                                            if not any(sw in sub_tema.upper() for sw in skip_words):
+                                                st_clean = re.sub(r'^(\d+[\.\-]?\s*)', '', sub_tema).strip()
                                                 subtemas_raw.append(st_clean)
                     found_tema = True
                     break
@@ -336,6 +343,8 @@ def procesar_excel_aam(file):
             }
         }
     except Exception as e:
+        print(f"Error procesando Excel: {e}")
+        print(traceback.format_exc())
         return None
 
 # --- 5. LÓGICA DE SYLLABUS Y TEXTOS DINÁMICOS CON IA ---
@@ -669,7 +678,7 @@ elif st.session_state.vista == 'app':
                     curso_actual = datos_dinamicos["rubrica"]
                     titulo_modulo_pdf = datos_dinamicos["nombre"]
                 else:
-                    st.error("No se pudo procesar el formato. Asegúrate de usar la plantilla oficial con 'NOMBRE DEL CURSO' y columna 'TEMA'.")
+                    st.error("No se pudo procesar el formato. Asegúrate de usar la plantilla oficial con 'NOMBRE DEL CURSO' y columna 'TEMA'. Revisa la terminal de Codespaces para el error exacto.")
                     st.stop()
             else:
                 st.stop()
@@ -682,7 +691,7 @@ elif st.session_state.vista == 'app':
 
     st.markdown("---")
 
-    # --- 1. PROGRESO ACADÉMICO (LA TABLA FUSIONADA) ---
+    # --- 1. PROGRESO ACADÉMICO ---
     st.subheader("1. Progreso Académico de los Integrantes")
     st.info("💡 Ingresa los nombres y calificaciones de las 3 fases. La calificación final se promediará automáticamente.")
 
@@ -759,7 +768,6 @@ elif st.session_state.vista == 'app':
                 
                 imagenes_individuales = [] 
 
-                # 1. Procesamiento de Gráficas Individuales (El Dashboard 2x2)
                 for idx, row in df_valido.iterrows():
                     n = row["Nombre del Integrante"]
                     if str(n).strip() == "": n = f"Integrante {idx + 1}"
@@ -775,11 +783,9 @@ elif st.session_state.vista == 'app':
                     
                     pt_grupo.append(pt_i); ps_grupo.append(ps_i); pp_grupo.append(pp_i)
 
-                    # Textos dinámicos individuales para los pies de gráfica
                     txt_dona_i, txt_bar_i, txt_curv_i, txt_rad_i, _, _, _, _, _, _, dictamen_i = generar_textos_dinamicos(pt_i, ps_i, pp_i, s1, s3, final, n, titulo_modulo_pdf, c_rub, curso_actual, es_grupo=False)
                     calif_abs_i = ((pt_i*0.1 + ps_i*0.2 + pp_i*0.7) + (s1*0.1 + s3*0.3 + final*0.6)) / 2
 
-                    # Fig 1: Dona
                     fig1, ax1 = plt.subplots(figsize=(4, 4))
                     color_f = '#28A745' if calif_abs_i >= 80 else ('#FFC107' if calif_abs_i >= 70 else '#FFB81C')
                     ax1.pie([calif_abs_i, 100-calif_abs_i], colors=[color_f, '#EEEEEE'], startangle=90, wedgeprops=dict(width=0.3))
@@ -788,7 +794,6 @@ elif st.session_state.vista == 'app':
                     img_dona = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                     plt.savefig(img_dona.name, dpi=300, bbox_inches='tight'); plt.close(fig1)
 
-                    # Fig 2: Barras 70-20-10
                     fig2, ax2 = plt.subplots(figsize=(5, 4))
                     barras = ax2.bar(['Teoría\n(10%)', 'Social\n(20%)', 'Práctica\n(70%)'], [pt_i, ps_i, pp_i], color=['#002855', '#8CB4E2', '#FFB81C'])
                     ax2.set_ylim(0, 110); ax2.spines['top'].set_visible(False); ax2.spines['right'].set_visible(False)
@@ -797,7 +802,6 @@ elif st.session_state.vista == 'app':
                     img_barras = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                     plt.savefig(img_barras.name, dpi=300, bbox_inches='tight'); plt.close(fig2)
 
-                    # Fig 3: Tendencia
                     fig3, ax3 = plt.subplots(figsize=(5, 4))
                     fases = ['S1', 'S3', 'Final']
                     ax3.plot(fases, [45, 75, 95], marker='o', linestyle='--', color='gray', label='Meta', linewidth=2)
@@ -808,7 +812,6 @@ elif st.session_state.vista == 'app':
                     img_tendencia = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                     plt.savefig(img_tendencia.name, dpi=300, bbox_inches='tight'); plt.close(fig3)
 
-                    # Fig 4: Radar
                     fig4, ax4 = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
                     cat = [f'Teoría\n({pt_i:.1f}%)', f'Social\n({ps_i:.1f}%)', f'Práctica\n({pp_i:.1f}%)']
                     val_r = [pt_i, ps_i, pp_i]
@@ -825,7 +828,6 @@ elif st.session_state.vista == 'app':
                         "txt1": txt_dona_i, "txt2": txt_bar_i, "txt3": txt_curv_i, "txt4": txt_rad_i, "dictamen": dictamen_i
                     })
 
-                # 2. Promedios y Textos Grupales
                 grp_pt = sum(pt_grupo) / len(pt_grupo)
                 grp_ps = sum(ps_grupo) / len(ps_grupo)
                 grp_pp = sum(pp_grupo) / len(pp_grupo)
@@ -843,7 +845,6 @@ elif st.session_state.vista == 'app':
                 txt_dona_g, txt_bar_g, txt_curv_g, txt_rad_g, bloom_g, modelo_g, pasos_g, temario_g, pasos_c_g, dist_sesiones_g, dictamen_g = generar_textos_dinamicos(grp_pt, grp_ps, grp_pp, grp_d, grp_f, grp_s, "Grupo", titulo_modulo_pdf, calif_promedio_matriz, curso_actual, es_grupo=True)
                 num_ses_propuestas = len(dist_sesiones_g)
 
-                # Gráficas del Grupo para el Dashboard
                 fig1_g, ax1_g = plt.subplots(figsize=(4, 4))
                 color_f = '#28A745' if calif_abs_g >= 80 else ('#FFC107' if calif_abs_g >= 70 else '#FFB81C')
                 ax1_g.pie([calif_abs_g, 100-calif_abs_g], colors=[color_f, '#EEEEEE'], startangle=90, wedgeprops=dict(width=0.3))
@@ -881,35 +882,25 @@ elif st.session_state.vista == 'app':
                 img_radar_g = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                 plt.savefig(img_radar_g.name, dpi=300, bbox_inches='tight'); plt.close(fig4_g)
 
-                # 3. Gráfica Comparativa Global (VERSIÓN LEGENDARIA)
                 fig_comp, ax_comp = plt.subplots(figsize=(9, 4.5))
-                
-                # Colores basados en el dictamen: Verde (Aprobado >=80), Amarillo (Condicionado >=70), Rojo (Suspendido <70)
                 colores = ['#28A745' if x >= 80 else ('#D49A00' if x >= 70 else '#DC3545') for x in finales_lista]
-                
-                # Barras más esbeltas y elegantes (zorder=3 para que resalten sobre el grid)
                 barras_comp = ax_comp.bar(nombres_lista, finales_lista, color=colores, width=0.55, zorder=3)
                 
-                # Fondo tipo "Widget" corporativo y Grid sutil
                 ax_comp.set_facecolor('#F8F9FA') 
                 fig_comp.patch.set_facecolor('#FFFFFF')
                 ax_comp.yaxis.grid(True, linestyle='--', alpha=0.7, color='#CCCCCC', zorder=0)
-                
-                # Línea de Meta (Benchmark AAM) - Visualiza al instante quién pasó y quién no
                 ax_comp.axhline(y=80, color='#002855', linestyle='-', linewidth=1.5, alpha=0.5, zorder=1)
                 ax_comp.text(-0.3, 82, 'Meta AAM (80%)', color='#002855', fontsize=9, fontweight='bold', va='bottom')
                 
-                # Limpieza de bordes (Spines) y ejes
-                ax_comp.set_ylim(0, 115) # Un poco más de aire arriba para las etiquetas tipo badge
+                ax_comp.set_ylim(0, 115) 
                 ax_comp.set_yticks([0, 20, 40, 60, 80, 100])
                 ax_comp.spines['top'].set_visible(False)
                 ax_comp.spines['right'].set_visible(False)
                 ax_comp.spines['left'].set_visible(False)
                 ax_comp.spines['bottom'].set_color('#A0AAB5')
-                ax_comp.tick_params(axis='both', length=0) # Adiós rayitas de los ejes
+                ax_comp.tick_params(axis='both', length=0)
                 ax_comp.tick_params(axis='y', colors='#666666')
                 
-                # Etiquetas de datos con estilo "Badge/Pill"
                 for i, bar in enumerate(barras_comp):
                     yval = bar.get_height()
                     ax_comp.text(bar.get_x() + bar.get_width()/2, yval + 2.5, f"{yval:.1f}%",
@@ -917,9 +908,7 @@ elif st.session_state.vista == 'app':
                                  color=colores[i],
                                  bbox=dict(facecolor='white', edgecolor=colores[i], boxstyle='round,pad=0.3', alpha=0.9))
                 
-                # Título alineado a la izquierda para un look más moderno (Leaderboard)
                 ax_comp.set_title("Leaderboard: Nivel de Competencia Operativa por Asociado", fontweight='bold', color='#002855', fontsize=13, loc='left', pad=15)
-                
                 plt.xticks(rotation=15, ha='right', fontsize=9, fontweight='bold', color='#333333')
                 plt.tight_layout()
                 
@@ -927,7 +916,6 @@ elif st.session_state.vista == 'app':
                 plt.savefig(img_comparativa.name, dpi=300, bbox_inches='tight', facecolor=fig_comp.get_facecolor())
                 plt.close(fig_comp)
 
-                # 4. Gantt Grupal
                 height_in = max(2.5, num_ses_propuestas * 0.45) 
                 fig_g, ax_g = plt.subplots(figsize=(7, height_in))
                 y_pos = np.arange(num_ses_propuestas)[::-1] 
@@ -961,7 +949,6 @@ elif st.session_state.vista == 'app':
                 plt.savefig(img_gantt.name, dpi=300, bbox_inches='tight')
                 plt.close(fig_g)
 
-                # 5. ROI Predictivo Grupal
                 fig_perf, ax_perf = plt.subplots(figsize=(8, 3.5)) 
                 x_perf = np.arange(3)
                 labels_x = ['Teoría Cognitiva', 'Resolución Social', 'Destreza en Piso']
@@ -994,7 +981,9 @@ elif st.session_state.vista == 'app':
 
                 # ================= REPORTLAB PDF =================
                 pdf_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-                doc = SimpleDocTemplate(pdf_temp.name, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=30, bottomMargin=30)
+                
+                # MÁRGENES REDUCIDOS PARA APROVECHAR HOJA
+                doc = SimpleDocTemplate(pdf_temp.name, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
                 estilos = getSampleStyleSheet()
                 
                 estilo_tit = ParagraphStyle('Titulo', parent=estilos['Heading1'], textColor=colors.HexColor("#002855"), alignment=TA_LEFT, fontSize=18)
@@ -1035,10 +1024,10 @@ elif st.session_state.vista == 'app':
                 elementos.append(Paragraph("<b>1. Análisis de Performance Individual</b>", estilo_sub))
                 
                 for ind in imagenes_individuales:
-                    elementos.append(Paragraph(f"<b>Evaluación de Destreza: {ind['nombre']}</b>", estilo_mini_tit))
-                    elementos.append(Spacer(1, 5))
+                    bloque_individual = []
+                    bloque_individual.append(Paragraph(f"<b>Evaluación de Destreza: {ind['nombre']}</b>", estilo_mini_tit))
+                    bloque_individual.append(Spacer(1, 5))
                     
-                    # Puras gráficas estilo Dashboard (2x2) sin tablas de calificaciones
                     dash_data_ind = [
                         [RLImage(ind["img1"], width=130, height=130), RLImage(ind["img2"], width=180, height=140)],
                         [Paragraph(ind["txt1"], estilo_pie), Paragraph(ind["txt2"], estilo_pie)],
@@ -1048,11 +1037,16 @@ elif st.session_state.vista == 'app':
                     ]
                     t_dash_ind = Table(dash_data_ind, colWidths=[260, 260])
                     t_dash_ind.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
-                    elementos.append(t_dash_ind)
+                    bloque_individual.append(t_dash_ind)
                     
                     estilo_dictamen = ParagraphStyle('Dictamen', parent=estilos['Normal'], fontSize=11, alignment=TA_CENTER, spaceBefore=10, spaceAfter=5, backColor=colors.HexColor("#F8F9FA"), borderPadding=6, borderWidth=1, borderColor=colors.HexColor("#CCCCCC"))
-                    elementos.append(Paragraph(ind["dictamen"], estilo_dictamen))
-                    elementos.append(PageBreak()) 
+                    bloque_individual.append(Paragraph(ind["dictamen"], estilo_dictamen))
+                    
+                    # Usamos KeepTogether para forzar a ReportLab a no cortar el perfil del usuario a la mitad
+                    elementos.append(KeepTogether(bloque_individual))
+                    elementos.append(Spacer(1, 10))
+
+                elementos.append(PageBreak()) 
 
                 # --- 2. COMPARATIVA GLOBAL DEL GRUPO ---
                 elementos.append(Paragraph("<b>2. Comparativa Global del Grupo</b>", estilo_sub))
@@ -1079,7 +1073,6 @@ elif st.session_state.vista == 'app':
                 elementos.append(t_exam)
                 elementos.append(Spacer(1, 10))
 
-                # Dashboard 2x2 Grupal
                 dash_data_g = [
                     [RLImage(img_dona_g.name, width=130, height=130), RLImage(img_barras_g.name, width=180, height=140)],
                     [Paragraph(txt_dona_g, estilo_pie), Paragraph(txt_bar_g, estilo_pie)],
