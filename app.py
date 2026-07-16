@@ -337,6 +337,9 @@ def procesar_excel_aam(file):
             }
         }
     except Exception as e:
+        import traceback
+        st.error(f"Dog, el error real es: {e}")
+        st.code(traceback.format_exc())
         return None
 
 # --- 5. LÓGICA DE SYLLABUS Y TEXTOS DINÁMICOS CON IA ---
