@@ -21,6 +21,8 @@ if 'vista' not in st.session_state:
     st.session_state.vista = 'landing'
 if 'descargado' not in st.session_state:
     st.session_state.descargado = False
+if 'mostrar_rubricas' not in st.session_state:
+    st.session_state.mostrar_rubricas = False
 
 def confirmar_descarga():
     st.session_state.descargado = True
@@ -32,6 +34,7 @@ def activar_motor():
 def volver():
     st.session_state.vista = 'landing'
     st.session_state.descargado = False
+    st.session_state.mostrar_rubricas = False
 
 def scroll_to_top():
     components.html(
@@ -195,7 +198,6 @@ def procesar_excel_aam(file):
         subtemas_raw = []
         found_tema = False
         
-        # Aspiradora de basura administrativa
         skip_words = ["APERTURA", "CIERRE", "INTRODUCCI", "BIENVENIDA", "ENCUADRE", "REGISTRO", "SONDEO", "EXPECTATIVAS", "EVALUACI", "CLAUSURA", "DINÁMICA"]
         
         for r in range(len(df)):
@@ -249,7 +251,6 @@ def procesar_excel_aam(file):
             words = txt.split()
             first_word = words[0]
             
-            # Corrector Ortográfico para "Gritones"
             if txt.isupper():
                 txt_adj = txt.lower()
                 txt_cap = txt.capitalize()
@@ -342,7 +343,6 @@ def generar_temario(calificaciones, curso_dict, dist_sesiones):
     temas_teoria = []
     temas_practica = []
     
-    # FUNCION DE INGENIERÍA INVERSA
     def extraer_nucleo(txt):
         txt = re.sub(r'[^\w\s\.\:\,\(\)\-áéíóúÁÉÍÓÚñÑüÜ]', '', txt).strip()
         sufijos = [r" aplicando un enfoque de análisis sistémico.*", r" con alto rigor técnico.*", r" para prevenir fallos operativos en la línea.*", r" de forma 100% autónoma en equipo energizado.*", r" aplicando estándares de la industria automotriz.*", r" asegurando los tiempos de ciclo en línea.*", r" bajo estrés operativo.*", r" en piso.*"]
@@ -354,9 +354,9 @@ def generar_temario(calificaciones, curso_dict, dist_sesiones):
         return txt
 
     for i, score in enumerate(calificaciones["TEORIA (Cognitivo)"]):
-        if score <= 2: temas_teoria.append(extraer_nucleo(curso_dict["TEORIA (Cognitivo)"][i]))
+        if score <= 2.2: temas_teoria.append(extraer_nucleo(curso_dict["TEORIA (Cognitivo)"][i]))
     for i, score in enumerate(calificaciones["PRACTICA (Experiencial)"]):
-        if score <= 2: temas_practica.append(extraer_nucleo(curso_dict["PRACTICA (Experiencial)"][i]))
+        if score <= 2.2: temas_practica.append(extraer_nucleo(curso_dict["PRACTICA (Experiencial)"][i]))
         
     if not temas_teoria: temas_teoria.append("Optimización de tiempos de escaneo y revisión de protocolos")
     if not temas_practica: temas_practica.append("Recuperación de desastres y simulación de fallas críticas")
@@ -412,7 +412,7 @@ def generar_temario(calificaciones, curso_dict, dist_sesiones):
             
     return temario_estructurado
 
-def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, titulo_curso, calificaciones_raw, curso_dict):
+def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, titulo_curso, calificaciones_raw, curso_dict, es_grupo=False):
     calif_absoluta = ( (pt*0.1 + ps*0.2 + pp*0.7) + (d_score*0.1 + f_score*0.3 + s_score*0.6) ) / 2
     
     if calif_absoluta >= 80 and pp >= 80 and pt >= 80: perfil = 1 
@@ -443,13 +443,13 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, titu
         txt_barras = f"<b>Metodología 70-20-10:</b> Barras deprimidas de forma transversal (Teoría: {pt:.1f}%, Práctica: {pp:.1f}%). Evidencia la necesidad de reiniciar el módulo instruccional."
 
     if s_score >= f_score and s_score >= 80:
-        txt_curva = f"<b>Curva Cognitiva:</b> Trayectoria ascendente cerrando en {s_score} pts. Superó la fase diagnóstica y logró aplicar los conocimientos en la evaluación final."
+        txt_curva = f"<b>Curva Cognitiva:</b> Trayectoria ascendente cerrando en {s_score:.0f} pts. Superó la fase diagnóstica y logró aplicar los conocimientos en la evaluación final."
     elif s_score < f_score and s_score < 75:
-        txt_curva = f"<b>Curva Cognitiva:</b> Desplome en la fase final (cayendo a {s_score} pts). La gráfica señala ansiedad o bloqueo cuando se le retira la supervisión del instructor."
+        txt_curva = f"<b>Curva Cognitiva:</b> Desplome en la fase final (cayendo a {s_score:.0f} pts). La gráfica señala ansiedad o bloqueo cuando se le retira la supervisión del instructor."
     elif d_score < 50 and f_score < 50 and s_score < 50:
         txt_curva = f"<b>Curva Cognitiva:</b> La trayectoria permanece plana y deficiente. Según Bloom, el alumno no logró cimentar la etapa básica de 'Memorizar' los conceptos."
     else:
-        txt_curva = f"<b>Curva Cognitiva:</b> Avance inconsistente cerrando en {s_score} pts. Existen huecos técnicos que impidieron una progresión fluida hacia la meta operativa."
+        txt_curva = f"<b>Curva Cognitiva:</b> Avance inconsistente cerrando en {s_score:.0f} pts. Existen huecos técnicos que impidieron una progresión fluida hacia la meta operativa."
 
     if pt < 20 and pp < 20 and ps < 20: txt_radar = f"<b>Huella de Brecha:</b> Polígono colapsado. Carencia estructural formativa transversal."
     elif abs(pt - pp) <= 10 and pt >= 80: txt_radar = f"<b>Huella de Brecha:</b> Equilibrio de alto rendimiento. Perfil simétrico ideal y competente."
@@ -501,6 +501,16 @@ def generar_textos_dinamicos(pt, ps, pp, d_score, f_score, s_score, nombre, titu
             pasos_cortos = ["Nivelación Aula", "Observación", "Ejecución Guiada", "Liberación Piso"]
         pasos = ["Pausar autorización para manipular celdas vivas temporalmente.", "Regresar a las bases de aula: instrucción intensiva sobre el funcionamiento básico."]
         dictamen_final = "<font color='#343A40'><b>DICTAMEN: SUSPENDIDO.</b> Riesgo operativo crítico. Requiere re-certificación obligatoria y nula intervención autónoma en piso.</font>"
+
+    if es_grupo:
+        txt_dona = txt_dona.replace("El asociado", "El grupo").replace("Entiende", "Entienden")
+        txt_barras = txt_barras.replace("el asociado", "el grupo").replace("Mantiene", "Mantienen")
+        txt_curva = txt_curva.replace("el alumno", "el grupo").replace("Superó", "Superaron").replace("logró", "lograron")
+        txt_radar = txt_radar.replace("equipo", "grupo").replace("vulnerable", "vulnerables")
+        bloom_txt = bloom_txt.replace("Capaz", "Grupo capaz").replace("Domina", "Dominan").replace("Carece", "Carecen").replace("Resuelve", "Resuelven").replace("Incapaz", "Incapaces")
+        modelo_txt = modelo_txt.replace("El asociado", "El grupo")
+        pasos = [p.replace("su independencia", "su independencia colectiva").replace("al asociado", "al grupo") for p in pasos]
+        dictamen_final = dictamen_final.replace("El asociado", "El grupo").replace("APROBADO", "GRUPO APROBADO").replace("CONDICIONADO", "GRUPO CONDICIONADO").replace("SUSPENDIDO", "GRUPO SUSPENDIDO").replace("EN TRANSICIÓN", "GRUPO EN TRANSICIÓN").replace("cumple y excede", "cumplen y exceden")
 
     temario_estructurado = generar_temario(calificaciones_raw, curso_dict, dist_sesiones)
 
@@ -616,7 +626,7 @@ elif st.session_state.vista == 'app':
     with col2:
         if os.path.exists("logo_aam.png"):
             st.image("logo_aam.png", use_container_width=True) 
-    st.markdown("<h2 style='text-align: center; margin-top: -10px;'>Motor de Micro-Evaluación Técnica</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: -10px;'>Motor de Micro-Evaluación Técnica (Grupal)</h2>", unsafe_allow_html=True)
     st.markdown("---")
 
     st.subheader("⚙️ Configuración del Módulo a Evaluar")
@@ -644,7 +654,6 @@ elif st.session_state.vista == 'app':
         with col_up1:
             st.info("Arrastra la plantilla estándar de contenido temático (FDTA004) de AAM University.")
             
-            # --- CANDADO ANTI-USUARIOS Y UX (V56) ---
             archivo_excel = st.file_uploader(
                 "Subir Archivo Excel", 
                 type=["xlsx"], 
@@ -667,128 +676,265 @@ elif st.session_state.vista == 'app':
 
     st.markdown("---")
     
-    col_d1, col_d2, col_d3 = st.columns([2.5, 2, 1.5])
-    nombre = col_d1.text_input("Asociado Evaluado:")
-    evaluador = col_d2.text_input("Instructor Responsable:")
-    fecha = col_d3.date_input("Fecha de Cierre:")
+    col_e1, col_e2 = st.columns([2, 1])
+    evaluador = col_e1.text_input("Instructor Responsable:")
+    fecha = col_e2.date_input("Fecha de Cierre:")
+
+    st.markdown("---")
+
+    # --- 1. PROGRESO ACADÉMICO (LA TABLA FUSIONADA) ---
+    st.subheader("1. Progreso Académico de los Integrantes")
+    st.info("💡 Ingresa los nombres y calificaciones de las 3 fases. La calificación final se promediará automáticamente.")
+
+    cantidad_integrantes = st.number_input("Cantidad de integrantes a evaluar", min_value=1, max_value=50, value=3)
+
+    if "df_base" not in st.session_state or len(st.session_state.df_base) != cantidad_integrantes:
+        st.session_state.df_base = pd.DataFrame({
+            "Nombre del Integrante": [f"Asociado {i+1}" for i in range(cantidad_integrantes)],
+            "Diagnóstica (S1)": [45.0] * cantidad_integrantes,
+            "Formativa (S3)": [80.0] * cantidad_integrantes,
+            "Sumativa (Final)": [90.0] * cantidad_integrantes
+        })
+
+    config_columnas = {
+        "Nombre del Integrante": st.column_config.TextColumn("Nombre del Integrante", required=True),
+        "Diagnóstica (S1)": st.column_config.NumberColumn("Diagnóstica (S1)", min_value=0.0, max_value=100.0, step=1.0),
+        "Formativa (S3)": st.column_config.NumberColumn("Formativa (S3)", min_value=0.0, max_value=100.0, step=1.0),
+        "Sumativa (Final)": st.column_config.NumberColumn("Sumativa (Final)", min_value=0.0, max_value=100.0, step=1.0)
+    }
+
+    df_editado = st.data_editor(st.session_state.df_base, column_config=config_columnas, num_rows="fixed", use_container_width=True, hide_index=True)
     
-    st.markdown("---")
-
-    st.subheader("1. Progreso Académico (Exámenes)")
-    c_ex1, c_ex2, c_ex3 = st.columns(3)
-    with c_ex1:
-        diag_score = st.number_input("Diagnóstica (Sondeo / S1)", min_value=0, max_value=100, value=45)
-    with c_ex2:
-        form_score = st.number_input("Formativa (Prácticas / S3)", min_value=0, max_value=100, value=80)
-    with c_ex3:
-        sum_score = st.number_input("Sumativa (Troubleshooting Final)", min_value=0, max_value=100, value=90)
+    df_valido = df_editado.copy()
+    df_valido["Calificación Final"] = df_valido[["Diagnóstica (S1)", "Formativa (S3)", "Sumativa (Final)"]].mean(axis=1)
 
     st.markdown("---")
 
-    st.subheader("2. Rúbrica de Desempeño Operativo")
-    st.info("""
-    **📘 Guía de Calificación (Escala de Campo AAM)**
-    * **1 - Conoce:** Entiende el concepto, pero es incapaz de configurar el software/hardware físicamente.
-    * **2 - Con Ayuda:** Logra realizar las conexiones/programación pero requiere asistencia técnica constante.
-    * **3 - Domina:** Ejecuta el Troubleshooting y la configuración de red de forma 100% autónoma.
-    """)
+    # --- 2. RÚBRICAS INDIVIDUALES ---
+    st.subheader("2. Rúbricas de Desempeño Operativo")
+    
+    if st.button("📝 Generar Rúbricas para Evaluar", type="primary"):
+        st.session_state.mostrar_rubricas = True
 
-    calificaciones = {"TEORIA (Cognitivo)": [], "SOCIAL (Colaborativo)": [], "PRACTICA (Experiencial)": []}
+    calificaciones_individuales = {}
 
-    for bloque, criterios in curso_actual.items():
-        st.markdown(f"#### {bloque}")
-        st.markdown("<hr style='margin: 5px 0; border: 1px solid #CCC;'>", unsafe_allow_html=True)
-        
-        for crit in criterios:
-            c1, c2 = st.columns([2, 3]) 
-            c1.markdown(f"<div style='padding-top: 10px; font-weight: 600; font-size: 15px;'>{crit}</div>", unsafe_allow_html=True)
-            val = c2.radio(f"Eval: {crit}", ["1 - Conoce", "2 - Con Ayuda", "3 - Domina"], horizontal=True, label_visibility="collapsed")
-            calificaciones[bloque].append(int(val[0])) 
+    if st.session_state.mostrar_rubricas:
+        st.info("""
+        **📘 Guía de Calificación (Escala de Campo AAM)**
+        * **1 - Conoce:** Entiende el concepto, pero es incapaz de configurar el software/hardware físicamente.
+        * **2 - Con Ayuda:** Logra realizar las conexiones/programación pero requiere asistencia técnica constante.
+        * **3 - Domina:** Ejecuta el Troubleshooting y la configuración de red de forma 100% autónoma.
+        """)
 
-    st.markdown("---")
-
-    if st.session_state.descargado:
-        st.success(f"✅ **¡Sistema Predictivo Ejecutado!** El Plan de Acción y Proyección de Retorno (ROI) de {nombre} están listos en tu PDF.")
-        st.toast('Syllabus generado exitosamente', icon='📈')
-
-    if st.button("📄 Generar Plan de Acción, Syllabus Dinámico y Proyección (PDF)", type="primary", use_container_width=True):
-        if not nombre:
-            st.error("Por favor, ingresa el nombre del asociado.")
-        else:
-            with st.spinner("Analizando rúbricas, cruzando Syllabus y calculando proyección de ROI..."):
+        for idx, row in df_valido.iterrows():
+            nombre = row["Nombre del Integrante"]
+            if str(nombre).strip() == "":
+                nombre = f"Integrante {idx + 1}"
                 
-                pct_t = calcular_pct_normalizado(calificaciones["TEORIA (Cognitivo)"])
-                pct_s = calcular_pct_normalizado(calificaciones["SOCIAL (Colaborativo)"])
-                pct_p = calcular_pct_normalizado(calificaciones["PRACTICA (Experiencial)"])
+            calificaciones_individuales[nombre] = {"TEORIA (Cognitivo)": [], "SOCIAL (Colaborativo)": [], "PRACTICA (Experiencial)": []}
+            
+            with st.expander(f"👨‍🔧 Evaluación de: {nombre}", expanded=False):
+                for bloque, criterios in curso_actual.items():
+                    st.markdown(f"#### {bloque}")
+                    st.markdown("<hr style='margin: 5px 0; border: 1px solid #CCC;'>", unsafe_allow_html=True)
+                    for j, crit in enumerate(criterios):
+                        c1, c2 = st.columns([2, 3]) 
+                        c1.markdown(f"<div style='padding-top: 10px; font-weight: 600; font-size: 15px;'>{crit}</div>", unsafe_allow_html=True)
+                        val = c2.radio(f"Eval: {nombre}_{bloque}_{j}", ["1 - Conoce", "2 - Con Ayuda", "3 - Domina"], horizontal=True, label_visibility="collapsed")
+                        calificaciones_individuales[nombre][bloque].append(int(val[0])) 
+
+        st.markdown("---")
+
+        if st.session_state.descargado:
+            st.success(f"✅ **¡Sistema Predictivo Ejecutado!** El Plan de Acción y Proyección de Retorno (ROI) grupal están listos en tu PDF.")
+            st.toast('Syllabus generado exitosamente', icon='📈')
+
+        if st.button("📄 Generar Manual Grupal y Syllabus Dinámico (PDF)", type="primary", use_container_width=True):
+            
+            with st.spinner("Analizando escuadrón, generando dashboards y calculando proyección..."):
                 
-                txt_dona, txt_barras, txt_curva, txt_radar, bloom_txt, modelo_txt, pasos, temario_estructurado, pasos_cortos, dist_sesiones, dictamen_final = generar_textos_dinamicos(pct_t, pct_s, pct_p, diag_score, form_score, sum_score, nombre, titulo_modulo_pdf, calificaciones, curso_actual)
-                num_ses_propuestas = len(dist_sesiones)
+                nombres_lista = []
+                finales_lista = []
+                pt_grupo, ps_grupo, pp_grupo = [], [], []
                 
-                calif_final_matriz = (pct_t * 0.10) + (pct_s * 0.20) + (pct_p * 0.70)
-                calif_examenes = (diag_score * 0.10) + (form_score * 0.30) + (sum_score * 0.60)
-                calif_absoluta = (calif_final_matriz + calif_examenes) / 2
+                imagenes_individuales = [] 
 
-                # === GRÁFICAS DE ESTADO ACTUAL ===
-                fig1, ax1 = plt.subplots(figsize=(4, 4))
-                color_f = '#28A745' if calif_absoluta >= 80 else ('#FFC107' if calif_absoluta >= 70 else '#FFB81C')
-                ax1.pie([calif_absoluta, 100-calif_absoluta], colors=[color_f, '#EEEEEE'], startangle=90, wedgeprops=dict(width=0.3))
-                ax1.text(0, 0, f'{calif_absoluta:.1f}%', ha='center', va='center', fontsize=24, fontweight='bold', color='#002855')
-                ax1.set_title("Score de Competencia Global", fontweight='bold', color='#002855', fontsize=11)
-                img_dona = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-                plt.savefig(img_dona.name, dpi=300, bbox_inches='tight')
-                plt.close(fig1)
+                # 1. Procesamiento de Gráficas Individuales (El Dashboard 2x2)
+                for idx, row in df_valido.iterrows():
+                    n = row["Nombre del Integrante"]
+                    if str(n).strip() == "": n = f"Integrante {idx + 1}"
+                    nombres_lista.append(n)
+                    finales_lista.append(row["Calificación Final"])
+                    
+                    s1, s3, final = row["Diagnóstica (S1)"], row["Formativa (S3)"], row["Sumativa (Final)"]
+                    
+                    c_rub = calificaciones_individuales[n]
+                    pt_i = calcular_pct_normalizado(c_rub["TEORIA (Cognitivo)"])
+                    ps_i = calcular_pct_normalizado(c_rub["SOCIAL (Colaborativo)"])
+                    pp_i = calcular_pct_normalizado(c_rub["PRACTICA (Experiencial)"])
+                    
+                    pt_grupo.append(pt_i); ps_grupo.append(ps_i); pp_grupo.append(pp_i)
 
-                fig2, ax2 = plt.subplots(figsize=(5, 4))
-                barras = ax2.bar(['Teoría\n(10%)', 'Social\n(20%)', 'Práctica\n(70%)'], [pct_t, pct_s, pct_p], color=['#002855', '#8CB4E2', '#FFB81C'])
-                ax2.set_ylim(0, 110)
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                ax2.set_title("Dimensiones de Dominio Técnico", fontweight='bold', color='#002855', fontsize=11)
-                for b in barras:
-                    ax2.text(b.get_x() + b.get_width()/2, b.get_height() + 2, f"{b.get_height():.1f}%", ha='center', fontweight='bold', fontsize=10)
-                img_barras = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-                plt.savefig(img_barras.name, dpi=300, bbox_inches='tight')
-                plt.close(fig2)
+                    # Textos dinámicos individuales para los pies de gráfica
+                    txt_dona_i, txt_bar_i, txt_curv_i, txt_rad_i, _, _, _, _, _, _, dictamen_i = generar_textos_dinamicos(pt_i, ps_i, pp_i, s1, s3, final, n, titulo_modulo_pdf, c_rub, curso_actual, es_grupo=False)
+                    calif_abs_i = ((pt_i*0.1 + ps_i*0.2 + pp_i*0.7) + (s1*0.1 + s3*0.3 + final*0.6)) / 2
 
-                fig3, ax3 = plt.subplots(figsize=(5, 4))
+                    # Fig 1: Dona
+                    fig1, ax1 = plt.subplots(figsize=(4, 4))
+                    color_f = '#28A745' if calif_abs_i >= 80 else ('#FFC107' if calif_abs_i >= 70 else '#FFB81C')
+                    ax1.pie([calif_abs_i, 100-calif_abs_i], colors=[color_f, '#EEEEEE'], startangle=90, wedgeprops=dict(width=0.3))
+                    ax1.text(0, 0, f'{calif_abs_i:.1f}%', ha='center', va='center', fontsize=24, fontweight='bold', color='#002855')
+                    ax1.set_title("Score de Competencia Global", fontweight='bold', color='#002855', fontsize=11)
+                    img_dona = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                    plt.savefig(img_dona.name, dpi=300, bbox_inches='tight'); plt.close(fig1)
+
+                    # Fig 2: Barras 70-20-10
+                    fig2, ax2 = plt.subplots(figsize=(5, 4))
+                    barras = ax2.bar(['Teoría\n(10%)', 'Social\n(20%)', 'Práctica\n(70%)'], [pt_i, ps_i, pp_i], color=['#002855', '#8CB4E2', '#FFB81C'])
+                    ax2.set_ylim(0, 110); ax2.spines['top'].set_visible(False); ax2.spines['right'].set_visible(False)
+                    ax2.set_title("Dimensiones de Dominio Técnico", fontweight='bold', color='#002855', fontsize=11)
+                    for b in barras: ax2.text(b.get_x() + b.get_width()/2, b.get_height() + 2, f"{b.get_height():.1f}%", ha='center', fontweight='bold', fontsize=10)
+                    img_barras = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                    plt.savefig(img_barras.name, dpi=300, bbox_inches='tight'); plt.close(fig2)
+
+                    # Fig 3: Tendencia
+                    fig3, ax3 = plt.subplots(figsize=(5, 4))
+                    fases = ['S1', 'S3', 'Final']
+                    ax3.plot(fases, [45, 75, 95], marker='o', linestyle='--', color='gray', label='Meta', linewidth=2)
+                    ax3.plot(fases, [s1, s3, final], marker='s', linestyle='-', color='#FFB81C', label='Real', linewidth=3, markersize=6)
+                    ax3.set_ylim(0, 110); ax3.grid(True, linestyle=':', alpha=0.6); ax3.legend(loc='lower right', fontsize=8)
+                    ax3.set_title("Trayectoria de Aprendizaje", fontweight='bold', color='#002855', fontsize=11)
+                    for i, val in enumerate([s1, s3, final]): ax3.annotate(f"{val}", (fases[i], val+4), ha='center', fontweight='bold', color='#D49A00', fontsize=9)
+                    img_tendencia = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                    plt.savefig(img_tendencia.name, dpi=300, bbox_inches='tight'); plt.close(fig3)
+
+                    # Fig 4: Radar
+                    fig4, ax4 = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
+                    cat = [f'Teoría\n({pt_i:.1f}%)', f'Social\n({ps_i:.1f}%)', f'Práctica\n({pp_i:.1f}%)']
+                    val_r = [pt_i, ps_i, pp_i]
+                    ang = np.linspace(0, 2*np.pi, len(cat), endpoint=False)
+                    val_r = np.concatenate((val_r,[val_r[0]])); ang = np.concatenate((ang,[ang[0]]))
+                    ax4.fill(ang, val_r, color='#002855', alpha=0.2); ax4.plot(ang, val_r, color='#002855', linewidth=2)
+                    ax4.set_ylim(0, 100); ax4.set_xticks(ang[:-1]); ax4.set_xticklabels(cat, fontweight='bold', color='#002855', fontsize=9); ax4.set_yticklabels([])
+                    ax4.set_title("Análisis de Brecha", fontweight='bold', color='#002855', fontsize=11, pad=15)
+                    img_radar = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                    plt.savefig(img_radar.name, dpi=300, bbox_inches='tight'); plt.close(fig4)
+
+                    imagenes_individuales.append({
+                        "nombre": n, "img1": img_dona.name, "img2": img_barras.name, "img3": img_tendencia.name, "img4": img_radar.name,
+                        "txt1": txt_dona_i, "txt2": txt_bar_i, "txt3": txt_curv_i, "txt4": txt_rad_i, "dictamen": dictamen_i
+                    })
+
+                # 2. Promedios y Textos Grupales
+                grp_pt = sum(pt_grupo) / len(pt_grupo)
+                grp_ps = sum(ps_grupo) / len(ps_grupo)
+                grp_pp = sum(pp_grupo) / len(pp_grupo)
+                grp_d = df_valido["Diagnóstica (S1)"].mean()
+                grp_f = df_valido["Formativa (S3)"].mean()
+                grp_s = df_valido["Sumativa (Final)"].mean()
+                calif_abs_g = ((grp_pt*0.1 + grp_ps*0.2 + grp_pp*0.7) + (grp_d*0.1 + grp_f*0.3 + grp_s*0.6)) / 2
+                
+                calif_promedio_matriz = {"TEORIA (Cognitivo)": [], "SOCIAL (Colaborativo)": [], "PRACTICA (Experiencial)": []}
+                for bloque, criterios in curso_actual.items():
+                    for i in range(len(criterios)):
+                        scores = [calificaciones_individuales[n][bloque][i] for n in calificaciones_individuales]
+                        calif_promedio_matriz[bloque].append(sum(scores) / len(scores))
+
+                txt_dona_g, txt_bar_g, txt_curv_g, txt_rad_g, bloom_g, modelo_g, pasos_g, temario_g, pasos_c_g, dist_sesiones_g, dictamen_g = generar_textos_dinamicos(grp_pt, grp_ps, grp_pp, grp_d, grp_f, grp_s, "Grupo", titulo_modulo_pdf, calif_promedio_matriz, curso_actual, es_grupo=True)
+                num_ses_propuestas = len(dist_sesiones_g)
+
+                # Gráficas del Grupo para el Dashboard
+                fig1_g, ax1_g = plt.subplots(figsize=(4, 4))
+                color_f = '#28A745' if calif_abs_g >= 80 else ('#FFC107' if calif_abs_g >= 70 else '#FFB81C')
+                ax1_g.pie([calif_abs_g, 100-calif_abs_g], colors=[color_f, '#EEEEEE'], startangle=90, wedgeprops=dict(width=0.3))
+                ax1_g.text(0, 0, f'{calif_abs_g:.1f}%', ha='center', va='center', fontsize=24, fontweight='bold', color='#002855')
+                ax1_g.set_title("Score de Competencia Global", fontweight='bold', color='#002855', fontsize=11)
+                img_dona_g = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                plt.savefig(img_dona_g.name, dpi=300, bbox_inches='tight'); plt.close(fig1_g)
+
+                fig2_g, ax2_g = plt.subplots(figsize=(5, 4))
+                barras_g = ax2_g.bar(['Teoría\n(10%)', 'Social\n(20%)', 'Práctica\n(70%)'], [grp_pt, grp_ps, grp_pp], color=['#002855', '#8CB4E2', '#FFB81C'])
+                ax2_g.set_ylim(0, 110); ax2_g.spines['top'].set_visible(False); ax2_g.spines['right'].set_visible(False)
+                ax2_g.set_title("Dimensiones de Dominio Técnico", fontweight='bold', color='#002855', fontsize=11)
+                for b in barras_g: ax2_g.text(b.get_x() + b.get_width()/2, b.get_height() + 2, f"{b.get_height():.1f}%", ha='center', fontweight='bold', fontsize=10)
+                img_barras_g = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                plt.savefig(img_barras_g.name, dpi=300, bbox_inches='tight'); plt.close(fig2_g)
+
+                fig3_g, ax3_g = plt.subplots(figsize=(5, 4))
                 fases = ['S1', 'S3', 'Final']
-                ax3.plot(fases, [45, 75, 95], marker='o', linestyle='--', color='gray', label='Meta', linewidth=2)
-                ax3.plot(fases, [diag_score, form_score, sum_score], marker='s', linestyle='-', color='#FFB81C', label='Real', linewidth=3, markersize=6)
-                ax3.set_ylim(0, 110)
-                ax3.grid(True, linestyle=':', alpha=0.6)
-                ax3.legend(loc='lower right', fontsize=8)
-                ax3.set_title("Trayectoria de Aprendizaje", fontweight='bold', color='#002855', fontsize=11)
-                for i, val in enumerate([diag_score, form_score, sum_score]):
-                    ax3.annotate(f"{val}", (fases[i], val+4), ha='center', fontweight='bold', color='#D49A00', fontsize=9)
-                img_tendencia = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-                plt.savefig(img_tendencia.name, dpi=300, bbox_inches='tight')
-                plt.close(fig3)
+                ax3_g.plot(fases, [45, 75, 95], marker='o', linestyle='--', color='gray', label='Meta', linewidth=2)
+                ax3_g.plot(fases, [grp_d, grp_f, grp_s], marker='s', linestyle='-', color='#FFB81C', label='Real', linewidth=3, markersize=6)
+                ax3_g.set_ylim(0, 110); ax3_g.grid(True, linestyle=':', alpha=0.6); ax3_g.legend(loc='lower right', fontsize=8)
+                ax3_g.set_title("Trayectoria de Aprendizaje", fontweight='bold', color='#002855', fontsize=11)
+                for i, val in enumerate([grp_d, grp_f, grp_s]): ax3_g.annotate(f"{val:.0f}", (fases[i], val+4), ha='center', fontweight='bold', color='#D49A00', fontsize=9)
+                img_tendencia_g = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                plt.savefig(img_tendencia_g.name, dpi=300, bbox_inches='tight'); plt.close(fig3_g)
 
-                fig4, ax4 = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
-                cat = [f'Teoría\n({pct_t:.1f}%)', f'Social\n({pct_s:.1f}%)', f'Práctica\n({pct_p:.1f}%)']
-                val_r = [pct_t, pct_s, pct_p]
+                fig4_g, ax4_g = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
+                cat = [f'Teoría\n({grp_pt:.1f}%)', f'Social\n({grp_ps:.1f}%)', f'Práctica\n({grp_pp:.1f}%)']
+                val_r = [grp_pt, grp_ps, grp_pp]
                 ang = np.linspace(0, 2*np.pi, len(cat), endpoint=False)
-                val_r = np.concatenate((val_r,[val_r[0]]))
-                ang = np.concatenate((ang,[ang[0]]))
-                ax4.fill(ang, val_r, color='#002855', alpha=0.2)
-                ax4.plot(ang, val_r, color='#002855', linewidth=2)
-                ax4.set_ylim(0, 100) 
-                ax4.set_xticks(ang[:-1])
-                ax4.set_xticklabels(cat, fontweight='bold', color='#002855', fontsize=9)
-                ax4.set_yticklabels([])
-                ax4.set_title("Análisis de Brecha", fontweight='bold', color='#002855', fontsize=11, pad=15)
-                img_radar = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-                plt.savefig(img_radar.name, dpi=300, bbox_inches='tight')
-                plt.close(fig4)
+                val_r = np.concatenate((val_r,[val_r[0]])); ang = np.concatenate((ang,[ang[0]]))
+                ax4_g.fill(ang, val_r, color='#002855', alpha=0.2); ax4_g.plot(ang, val_r, color='#002855', linewidth=2)
+                ax4_g.set_ylim(0, 100); ax4_g.set_xticks(ang[:-1]); ax4_g.set_xticklabels(cat, fontweight='bold', color='#002855', fontsize=9); ax4_g.set_yticklabels([])
+                ax4_g.set_title("Análisis de Brecha", fontweight='bold', color='#002855', fontsize=11, pad=15)
+                img_radar_g = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                plt.savefig(img_radar_g.name, dpi=300, bbox_inches='tight'); plt.close(fig4_g)
 
-                # === GANTT TWI ===
+                # 3. Gráfica Comparativa Global (VERSIÓN LEGENDARIA)
+                fig_comp, ax_comp = plt.subplots(figsize=(9, 4.5))
+                
+                # Colores basados en el dictamen: Verde (Aprobado >=80), Amarillo (Condicionado >=70), Rojo (Suspendido <70)
+                colores = ['#28A745' if x >= 80 else ('#D49A00' if x >= 70 else '#DC3545') for x in finales_lista]
+                
+                # Barras más esbeltas y elegantes (zorder=3 para que resalten sobre el grid)
+                barras_comp = ax_comp.bar(nombres_lista, finales_lista, color=colores, width=0.55, zorder=3)
+                
+                # Fondo tipo "Widget" corporativo y Grid sutil
+                ax_comp.set_facecolor('#F8F9FA') 
+                fig_comp.patch.set_facecolor('#FFFFFF')
+                ax_comp.yaxis.grid(True, linestyle='--', alpha=0.7, color='#CCCCCC', zorder=0)
+                
+                # Línea de Meta (Benchmark AAM) - Visualiza al instante quién pasó y quién no
+                ax_comp.axhline(y=80, color='#002855', linestyle='-', linewidth=1.5, alpha=0.5, zorder=1)
+                ax_comp.text(-0.3, 82, 'Meta AAM (80%)', color='#002855', fontsize=9, fontweight='bold', va='bottom')
+                
+                # Limpieza de bordes (Spines) y ejes
+                ax_comp.set_ylim(0, 115) # Un poco más de aire arriba para las etiquetas tipo badge
+                ax_comp.set_yticks([0, 20, 40, 60, 80, 100])
+                ax_comp.spines['top'].set_visible(False)
+                ax_comp.spines['right'].set_visible(False)
+                ax_comp.spines['left'].set_visible(False)
+                ax_comp.spines['bottom'].set_color('#A0AAB5')
+                ax_comp.tick_params(axis='both', length=0) # Adiós rayitas de los ejes
+                ax_comp.tick_params(axis='y', colors='#666666')
+                
+                # Etiquetas de datos con estilo "Badge/Pill"
+                for i, bar in enumerate(barras_comp):
+                    yval = bar.get_height()
+                    ax_comp.text(bar.get_x() + bar.get_width()/2, yval + 2.5, f"{yval:.1f}%",
+                                 ha='center', va='bottom', fontweight='bold', fontsize=9,
+                                 color=colores[i],
+                                 bbox=dict(facecolor='white', edgecolor=colores[i], boxstyle='round,pad=0.3', alpha=0.9))
+                
+                # Título alineado a la izquierda para un look más moderno (Leaderboard)
+                ax_comp.set_title("Leaderboard: Nivel de Competencia Operativa por Asociado", fontweight='bold', color='#002855', fontsize=13, loc='left', pad=15)
+                
+                plt.xticks(rotation=15, ha='right', fontsize=9, fontweight='bold', color='#333333')
+                plt.tight_layout()
+                
+                img_comparativa = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                plt.savefig(img_comparativa.name, dpi=300, bbox_inches='tight', facecolor=fig_comp.get_facecolor())
+                plt.close(fig_comp)
+
+                # 4. Gantt Grupal
                 height_in = max(2.5, num_ses_propuestas * 0.45) 
                 fig_g, ax_g = plt.subplots(figsize=(7, height_in))
                 y_pos = np.arange(num_ses_propuestas)[::-1] 
                 
-                t_hrs = [d[0] for d in dist_sesiones]
-                s_hrs = [d[1] for d in dist_sesiones]
-                p_hrs = [d[2] for d in dist_sesiones]
+                t_hrs = [d[0] for d in dist_sesiones_g]
+                s_hrs = [d[1] for d in dist_sesiones_g]
+                p_hrs = [d[2] for d in dist_sesiones_g]
                 
                 ax_g.barh(y_pos, t_hrs, color='#002855', label='Teoría (Preparar)', height=0.55, edgecolor='white')
                 ax_g.barh(y_pos, s_hrs, left=t_hrs, color='#8CB4E2', label='Colaborativo (Presentar)', height=0.55, edgecolor='white')
@@ -798,7 +944,7 @@ elif st.session_state.vista == 'app':
                     if t_hrs[i] > 0: ax_g.text(t_hrs[i]/2, y_pos[i], f"{t_hrs[i]}h", va='center', ha='center', color='white', fontweight='bold', fontsize=9)
                     if s_hrs[i] > 0: ax_g.text(t_hrs[i] + s_hrs[i]/2, y_pos[i], f"{s_hrs[i]}h", va='center', ha='center', color='white', fontweight='bold', fontsize=9)
                     if p_hrs[i] > 0: ax_g.text(t_hrs[i] + s_hrs[i] + p_hrs[i]/2, y_pos[i], f"{p_hrs[i]}h", va='center', ha='center', color='#333333', fontweight='bold', fontsize=9)
-                    ax_g.text(4.1, y_pos[i], f"➤ {pasos_cortos[i]}", va='center', ha='left', color='#333333', fontsize=9, fontstyle='italic')
+                    ax_g.text(4.1, y_pos[i], f"➤ {pasos_c_g[i]}", va='center', ha='left', color='#333333', fontsize=9, fontstyle='italic')
 
                 ax_g.set_yticks(y_pos)
                 ax_g.set_yticklabels([f'Sesión {i+1}' for i in range(num_ses_propuestas)], fontweight='bold', color='#002855')
@@ -808,35 +954,32 @@ elif st.session_state.vista == 'app':
                 ax_g.spines['right'].set_visible(False)
                 ax_g.spines['left'].set_color('#CCCCCC')
                 ax_g.spines['bottom'].set_color('#CCCCCC')
-                ax_g.set_title(f"Plan de Acción Propuesto: {num_ses_propuestas} Sesiones", fontweight='bold', color='#002855', fontsize=12, loc='left')
+                ax_g.set_title(f"Plan de Acción Propuesto para el Grupo", fontweight='bold', color='#002855', fontsize=12, loc='left')
                 ax_g.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False, fontsize=10)
                 plt.tight_layout()
                 img_gantt = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                 plt.savefig(img_gantt.name, dpi=300, bbox_inches='tight')
                 plt.close(fig_g)
 
-                # === GRÁFICA DE ANALÍTICA PREDICTIVA ===
+                # 5. ROI Predictivo Grupal
                 fig_perf, ax_perf = plt.subplots(figsize=(8, 3.5)) 
                 x_perf = np.arange(3)
                 labels_x = ['Teoría Cognitiva', 'Resolución Social', 'Destreza en Piso']
-                
-                actual_vals = [pct_t, pct_s, pct_p]
-                expected_vals = [max(pct_t, 90), max(pct_s, 95), max(pct_p, 95)] 
+                actual_vals = [grp_pt, grp_ps, grp_pp]
+                expected_vals = [max(grp_pt, 90), max(grp_ps, 95), max(grp_pp, 95)] 
 
                 ax_perf.fill_between(x_perf, actual_vals, color='#A0AAB5', alpha=0.3)
                 ax_perf.fill_between(x_perf, actual_vals, expected_vals, color='#28A745', alpha=0.3)
                 
-                ax_perf.plot(x_perf, actual_vals, marker='o', markersize=8, color='#A0AAB5', linewidth=3, label='Nivel Base Actual')
-                ax_perf.plot(x_perf, expected_vals, marker='s', markersize=8, color='#28A745', linewidth=3, label='Performance Proyectado (Post-Syllabus)')
+                ax_perf.plot(x_perf, actual_vals, marker='o', markersize=8, color='#A0AAB5', linewidth=3, label='Nivel Base Actual Grupo')
+                ax_perf.plot(x_perf, expected_vals, marker='s', markersize=8, color='#28A745', linewidth=3, label='Performance Proyectado Post-Syllabus')
 
-                ax_perf.set_title('Proyección de Retorno de Inversión Formativo (ROI)', fontweight='bold', color='#002855', fontsize=14, pad=20)
+                ax_perf.set_title('Proyección de Retorno de Inversión Formativo (ROI Grupal)', fontweight='bold', color='#002855', fontsize=14, pad=20)
                 ax_perf.set_xticks(x_perf)
                 ax_perf.set_xticklabels(labels_x, fontweight='bold', color='#002855', fontsize=11)
                 ax_perf.set_ylim(0, 110)
                 ax_perf.grid(True, linestyle=':', alpha=0.6)
-                
                 ax_perf.legend(loc='lower center', bbox_to_anchor=(0.5, -0.25), ncol=2, frameon=False, fontsize=10)
-                
                 ax_perf.spines['top'].set_visible(False)
                 ax_perf.spines['right'].set_visible(False)
 
@@ -849,7 +992,7 @@ elif st.session_state.vista == 'app':
                 plt.savefig(img_perf.name, dpi=300, bbox_inches='tight')
                 plt.close(fig_perf)
 
-                # === PDF REPORTLAB ===
+                # ================= REPORTLAB PDF =================
                 pdf_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
                 doc = SimpleDocTemplate(pdf_temp.name, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=30, bottomMargin=30)
                 estilos = getSampleStyleSheet()
@@ -867,12 +1010,11 @@ elif st.session_state.vista == 'app':
                 
                 elementos = []
 
-                # PÁGINA 1 ========================================================
+                # HEADER
                 header_data = []
-                title_para = Paragraph("<b>REPORTE OFICIAL DE CERTIFICACIÓN TÉCNICA</b>", estilo_tit)
+                title_para = Paragraph("<b>REPORTE OFICIAL DE CERTIFICACIÓN TÉCNICA (GRUPAL)</b>", estilo_tit)
                 if os.path.exists("logo_aam.png"):
-                    logo_img = RLImage("logo_aam.png", width=70, height=70)
-                    header_data = [[logo_img, title_para]]
+                    header_data = [[RLImage("logo_aam.png", width=70, height=70), title_para]]
                 else:
                     header_data = [["", title_para]]
                 t_header = Table(header_data, colWidths=[80, 400])
@@ -881,20 +1023,50 @@ elif st.session_state.vista == 'app':
                 elementos.append(Spacer(1, 10))
                 
                 datos_cabecera = [
-                    [Paragraph(f"<b>Asociado Evaluado:</b> {nombre}"), Paragraph(f"<b>Fecha:</b> {fecha}")],
+                    [Paragraph(f"<b>Grupo Evaluado:</b> {len(nombres_lista)} Asociados"), Paragraph(f"<b>Fecha:</b> {fecha}")],
                     [Paragraph(f"<b>Certificación AAM:</b> {titulo_modulo_pdf}"), Paragraph(f"<b>Instructor:</b> {evaluador}")]
                 ]
                 t = Table(datos_cabecera, colWidths=[260, 260])
                 t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8F9FA")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#A0AAB5")), ('PADDING', (0,0), (-1,-1), 6)]))
                 elementos.append(t)
-                elementos.append(Spacer(1, 10))
+                elementos.append(Spacer(1, 15))
 
-                elementos.append(Paragraph("<b>Registro de Evaluaciones Continuas</b>", estilo_sub))
+                # --- 1. ANÁLISIS DE PERFORMANCE INDIVIDUAL ---
+                elementos.append(Paragraph("<b>1. Análisis de Performance Individual</b>", estilo_sub))
+                
+                for ind in imagenes_individuales:
+                    elementos.append(Paragraph(f"<b>Evaluación de Destreza: {ind['nombre']}</b>", estilo_mini_tit))
+                    elementos.append(Spacer(1, 5))
+                    
+                    # Puras gráficas estilo Dashboard (2x2) sin tablas de calificaciones
+                    dash_data_ind = [
+                        [RLImage(ind["img1"], width=130, height=130), RLImage(ind["img2"], width=180, height=140)],
+                        [Paragraph(ind["txt1"], estilo_pie), Paragraph(ind["txt2"], estilo_pie)],
+                        [Spacer(1, 2), Spacer(1, 2)], 
+                        [RLImage(ind["img3"], width=180, height=140), RLImage(ind["img4"], width=130, height=130)],
+                        [Paragraph(ind["txt3"], estilo_pie), Paragraph(ind["txt4"], estilo_pie)]
+                    ]
+                    t_dash_ind = Table(dash_data_ind, colWidths=[260, 260])
+                    t_dash_ind.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+                    elementos.append(t_dash_ind)
+                    
+                    estilo_dictamen = ParagraphStyle('Dictamen', parent=estilos['Normal'], fontSize=11, alignment=TA_CENTER, spaceBefore=10, spaceAfter=5, backColor=colors.HexColor("#F8F9FA"), borderPadding=6, borderWidth=1, borderColor=colors.HexColor("#CCCCCC"))
+                    elementos.append(Paragraph(ind["dictamen"], estilo_dictamen))
+                    elementos.append(PageBreak()) 
+
+                # --- 2. COMPARATIVA GLOBAL DEL GRUPO ---
+                elementos.append(Paragraph("<b>2. Comparativa Global del Grupo</b>", estilo_sub))
+                elementos.append(RLImage(img_comparativa.name, width=480, height=max(240, len(nombres_lista)*30)))
+                elementos.append(Spacer(1, 20))
+
+                # --- 3. REGISTRO DE EVALUACIONES CONTINUAS (PROMEDIO GRUPAL) ---
+                elementos.append(Paragraph("<b>3. Registro de Evaluaciones Continuas (Promedio Grupal)</b>", estilo_sub))
+                
                 datos_examenes = [
-                    [Paragraph("Fase", estilo_blanco), Paragraph("Propósito Metodológico", estilo_blanco), Paragraph("Peso", estilo_blanco), Paragraph("Score", estilo_blanco)],
-                    ["Diagnóstica", "Línea base cognitiva de pre-requisitos (Bloom: Recordar).", "10%", f"{diag_score}/100"],
-                    ["Formativa", "Validación asimilativa durante observación guiada.", "30%", f"{form_score}/100"],
-                    ["Sumativa", "Dictamen de resolución técnica en equipo vivo.", "60%", f"{sum_score}/100"]
+                    [Paragraph("Fase", estilo_blanco), Paragraph("Propósito Metodológico", estilo_blanco), Paragraph("Peso", estilo_blanco), Paragraph("Score Promedio", estilo_blanco)],
+                    ["Diagnóstica", "Línea base cognitiva de pre-requisitos (Bloom: Recordar).", "10%", f"{grp_d:.1f}/100"],
+                    ["Formativa", "Validación asimilativa durante observación guiada.", "30%", f"{grp_f:.1f}/100"],
+                    ["Sumativa", "Dictamen de resolución técnica en equipo vivo.", "60%", f"{grp_s:.1f}/100"]
                 ]
                 t_exam = Table(datos_examenes, colWidths=[70, 310, 50, 90])
                 t_exam.setStyle(TableStyle([
@@ -907,62 +1079,52 @@ elif st.session_state.vista == 'app':
                 elementos.append(t_exam)
                 elementos.append(Spacer(1, 10))
 
-                img1 = RLImage(img_dona.name, width=130, height=130)
-                img2 = RLImage(img_barras.name, width=180, height=140)
-                img3 = RLImage(img_tendencia.name, width=180, height=140)
-                img4 = RLImage(img_radar.name, width=130, height=130)
-
-                dash_data = [
-                    [img1, img2],
-                    [Paragraph(txt_dona, estilo_pie), Paragraph(txt_barras, estilo_pie)],
+                # Dashboard 2x2 Grupal
+                dash_data_g = [
+                    [RLImage(img_dona_g.name, width=130, height=130), RLImage(img_barras_g.name, width=180, height=140)],
+                    [Paragraph(txt_dona_g, estilo_pie), Paragraph(txt_bar_g, estilo_pie)],
                     [Spacer(1, 2), Spacer(1, 2)], 
-                    [img3, img4],
-                    [Paragraph(txt_curva, estilo_pie), Paragraph(txt_radar, estilo_pie)]
+                    [RLImage(img_tendencia_g.name, width=180, height=140), RLImage(img_radar_g.name, width=130, height=130)],
+                    [Paragraph(txt_curv_g, estilo_pie), Paragraph(txt_rad_g, estilo_pie)]
                 ]
-                t_dash = Table(dash_data, colWidths=[260, 260])
-                t_dash.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
-                elementos.append(t_dash)
+                t_dash_g = Table(dash_data_g, colWidths=[260, 260])
+                t_dash_g.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+                elementos.append(t_dash_g)
                 
-                estilo_dictamen = ParagraphStyle('Dictamen', parent=estilos['Normal'], fontSize=11, alignment=TA_CENTER, spaceBefore=10, spaceAfter=5, backColor=colors.HexColor("#F8F9FA"), borderPadding=6, borderWidth=1, borderColor=colors.HexColor("#CCCCCC"))
-                elementos.append(Paragraph(dictamen_final, estilo_dictamen))
-                
-                # PÁGINA 2 ========================================================
+                elementos.append(Paragraph(dictamen_g, estilo_dictamen))
                 elementos.append(PageBreak()) 
-                
-                elementos.append(Paragraph(f"<b>Evaluación Técnica:</b> {nombre} ({titulo_modulo_pdf})", estilo_pie))
-                elementos.append(Spacer(1, 15))
 
-                elementos.append(Paragraph("<b>PLAN DE ASIGNACIÓN DE RECURSOS (TWI)</b>", estilo_sub))
-                elementos.append(Paragraph(bloom_txt, estilo_txt))
+                # --- 4. PLAN DE ASIGNACIÓN DE RECURSOS GRUPAL ---
+                elementos.append(Paragraph("<b>4. Plan de Asignación de Recursos Grupal (TWI)</b>", estilo_sub))
+                elementos.append(Paragraph(bloom_g, estilo_txt))
                 elementos.append(Spacer(1, 5))
-                elementos.append(Paragraph(modelo_txt, estilo_txt))
+                elementos.append(Paragraph(modelo_g, estilo_txt))
                 elementos.append(Spacer(1, 8))
                 
                 img_height_rl = 450 * (height_in / 7.0)
                 elementos.append(RLImage(img_gantt.name, width=450, height=img_height_rl))
                 
-                texto_glosario = "*Glosario de Fases TWI: <b>Preparar:</b> Revisión teórica y lectura de diagramas. <b>Presentar:</b> Observación activa (Shadowing). <b>Intentar:</b> Ejecución autónoma en piso (Try-Out). <br/><br/><i>Nota de Compensación: La distribución de horas en este plan correctivo es intencionalmente asimétrica. Su propósito es inyectar recursos en las áreas deficientes para devolver al asociado al equilibrio del modelo 70-20-10.</i>"
+                texto_glosario = "*Glosario de Fases TWI: <b>Preparar:</b> Revisión teórica y lectura de diagramas. <b>Presentar:</b> Observación activa (Shadowing). <b>Intentar:</b> Ejecución autónoma en piso (Try-Out). <br/><br/><i>Nota de Compensación: La distribución de horas en este plan correctivo es intencionalmente asimétrica. Su propósito es inyectar recursos en las áreas deficientes para devolver al grupo al equilibrio del modelo 70-20-10.</i>"
                 elementos.append(Spacer(1, 3))
                 elementos.append(Paragraph(texto_glosario, estilo_glosario))
                 elementos.append(Spacer(1, 20))
                 
-                elementos.append(Paragraph("<b>Recomendaciones de Acción Preventiva:</b>", estilo_mini_tit))
+                elementos.append(Paragraph("<b>Recomendaciones de Acción Preventiva (Para el Instructor):</b>", estilo_mini_tit))
                 lista_pasos = []
-                for p in pasos:
+                for p in pasos_g:
                     lista_pasos.append(ListItem(Paragraph(p, estilo_bullet_main), bulletText="•"))
                 elementos.append(ListFlowable(lista_pasos, bulletType='bullet', leftIndent=10))
+                elementos.append(PageBreak())
 
-                # PÁGINA 3 ========================================================
-                elementos.append(PageBreak()) 
-
-                elementos.append(Paragraph("<b>SYLLABUS AUTOMATIZADO (Basado en Brechas Operativas)</b>", estilo_sub))
-                texto_explicativo = "<i>Nota Metodológica: ¿Qué es el Syllabus Automatizado? En lugar de generar temarios genéricos, el algoritmo del sistema cruza en tiempo real las deficiencias específicas detectadas en la evaluación del asociado con el mapa curricular oficial de AAM, estructurando un plan de rescate académico jerarquizado y 100% a la medida.</i>"
+                # --- 5. SYLLABUS AUTOMATIZADO DEL GRUPO ---
+                elementos.append(Paragraph("<b>5. Syllabus Automatizado del Grupo (Basado en Brechas Operativas)</b>", estilo_sub))
+                texto_explicativo = "<i>Nota Metodológica: ¿Qué es el Syllabus Automatizado? En lugar de generar temarios genéricos, el algoritmo del sistema cruza en tiempo real las deficiencias promedio detectadas en el equipo con el mapa curricular oficial de AAM, estructurando un plan de rescate académico jerarquizado y 100% a la medida grupal.</i>"
                 elementos.append(Spacer(1, 5))
                 elementos.append(Paragraph(texto_explicativo, estilo_txt))
                 elementos.append(Spacer(1, 15))
 
                 lista_principal_syllabus = []
-                for bloque in temario_estructurado:
+                for bloque in temario_g:
                     sub_items = []
                     if bloque["teoria"]:
                         sub_items.append(ListItem(Paragraph(bloque["teoria"], estilo_subbullet), bulletText="•"))
@@ -976,11 +1138,11 @@ elif st.session_state.vista == 'app':
                     lista_principal_syllabus.append(item_principal)
 
                 elementos.append(ListFlowable(lista_principal_syllabus, bulletType='bullet', leftIndent=10))
-                
                 elementos.append(Spacer(1, 20))
                 
-                elementos.append(Paragraph("<b>ANALÍTICA PREDICTIVA DE COMPETENCIA (Nivel Esperado)</b>", estilo_sub))
-                texto_roi = "La siguiente gráfica proyecta el crecimiento formativo del asociado al concluir el Syllabus estructurado. El área verde representa la recuperación de competencia operativa proyectada tras ejecutar las sesiones TWI sugeridas."
+                # --- 6. ANALÍTICA PREDICTIVA DE COMPETENCIA ---
+                elementos.append(Paragraph("<b>6. Analítica Predictiva de Competencia (Nivel Esperado)</b>", estilo_sub))
+                texto_roi = "La siguiente gráfica proyecta el crecimiento formativo del equipo al concluir el Syllabus estructurado. El área verde representa la recuperación de competencia operativa proyectada tras ejecutar las sesiones TWI sugeridas."
                 elementos.append(Spacer(1, 5))
                 elementos.append(Paragraph(texto_roi, estilo_txt))
                 elementos.append(Spacer(1, 10))
@@ -991,9 +1153,9 @@ elif st.session_state.vista == 'app':
 
             with open(pdf_temp.name, "rb") as pdf_file:
                 st.download_button(
-                    label="📥 DESCARGAR SYLLABUS Y PROYECCIÓN DE ROI (PDF)",
+                    label="📥 DESCARGAR REPORTE TÉCNICO Y SYLLABUS GRUPAL (PDF)",
                     data=pdf_file,
-                    file_name=f"Syllabus_AAM_{nombre.replace(' ', '_')}.pdf",
+                    file_name=f"Reporte_Grupo_AAM_{fecha}.pdf",
                     mime="application/pdf",
                     type="primary",
                     use_container_width=True,
