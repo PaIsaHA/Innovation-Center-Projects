@@ -1168,7 +1168,7 @@ elif st.session_state.vista == 'app':
 st.markdown("""
     <hr style="margin-top: 3rem; margin-bottom: 1rem; border: 0; border-top: 1px solid #CCC;">
     <div style="text-align: center; color: #666; font-size: 14px;">
-        Desarrollado en el Centro de Innovación IECA + AAM por <b>[Ing. Pablo Horta]</b><br>
-        <i>AAM SkillMatrix Pro v1.0</i>
+        Desarrollado en el Centro de Innovación IECA + AAM por <b>Ing. Pablo Horta</b><br>
+        <i>AAM SkillMatrix Pro v0.1</i>
     </div>
 """, unsafe_allow_html=True)
