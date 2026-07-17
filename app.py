@@ -1175,8 +1175,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LOGO DEL CENTRO DE INNOVACIÓN ---
-    # Usamos 3 columnas para que el logo quede perfectamente centrado
-    col_espacio1, col_logo, col_espacio2 = st.columns([4.5, 1, 4.5]) 
-    
-    with col_logo:
-        st.image("logo_ci.png", use_container_width=True)
+# Usamos 3 columnas para que el logo quede perfectamente centrado
+col_espacio1, col_logo, col_espacio2 = st.columns([4.5, 1, 4.5])     
+with col_logo:
+    st.image("logo_ci.png", use_container_width=True)
