@@ -1164,6 +1164,7 @@ elif st.session_state.vista == 'app':
                     use_container_width=True,
                     on_click=confirmar_descarga
                 )
+
 # --- FOOTER / FIRMA DEL DESARROLLADOR ---
 st.markdown("""
     <hr style="margin-top: 3rem; margin-bottom: 1rem; border: 0; border-top: 1px solid #CCC;">
@@ -1172,3 +1173,10 @@ st.markdown("""
         <i>AAM SkillMatrix Pro v0.1</i>
     </div>
 """, unsafe_allow_html=True)
+
+# --- LOGO DEL CENTRO DE INNOVACIÓN ---
+    # Usamos 3 columnas para que el logo quede perfectamente centrado
+    col_espacio1, col_logo, col_espacio2 = st.columns([4.5, 1, 4.5]) 
+    
+    with col_logo:
+        st.image("logo_ci.png", use_container_width=True)
